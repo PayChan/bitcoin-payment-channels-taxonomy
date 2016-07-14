@@ -1,0 +1,10 @@
+img {
+    height: auto;
+    margin: auto;
+    display: block;
+}
+
+body {
+    width: 1100px;
+    margin: auto;
+}
