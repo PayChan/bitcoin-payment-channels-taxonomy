@@ -141,6 +141,8 @@ This continues until one of the following happens:
 2. the funds in the channel are exhausted and the most recent commitment transaction sends 1 BTC to Bob and 0 to Alice. At this point, Bob should just sign and broadcast that commitment transaction and collect the 1 BTC.
 3. The payment channel expiry duration is reached. At this point Alice can reclaim all of the funds in the channel. Bob should never let this happen, so should sign and broadcast the latest commitment transaction well before the expiry duration.
 
+One of the nice things about this style of payment channel is that it is almost entirely passive from Bob's point of view. He simply needs to keep hold of the commitment transactions, and then sign and broadcast the most recent one when he's ready to close the channel.
+
 #### Redeeming a Commitment transaction
 
 To redeem a commitment transaction, Bob broadcasts the transaction with the following witness:
