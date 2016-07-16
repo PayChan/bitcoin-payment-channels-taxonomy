@@ -158,16 +158,3 @@ After the payment channel expiry duration, Alice an get a refund for the content
 ```
 <Alice's sig> 0
 ```
-
-## TODO
-
-- Run through the script execution for simple payment channels
-- Message exchange order for simple payment channels
-- Bidirectional, Fixed-duration Payment Channels
-    - Revokable Transactions
-- Bidirectional, Non-Expiring Payment Channels
-    - Symmetric Commitment Transactions
-- Routable Channels (Lightning Network)
-    - Hashed Time-Lock Contracts
-
-
