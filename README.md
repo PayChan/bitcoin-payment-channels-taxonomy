@@ -16,9 +16,8 @@ The article as available at (http://paychan.github.io/bitcoin-payment-channels-t
 
 - Run through the script execution for simple payment channels
 - Message exchange order for simple payment channels
-- Bidirectional, Fixed-duration Payment Channels
-    - Revokable Transactions
-- Bidirectional, Non-Expiring Payment Channels
+- Two-way Payment Channels
+- Non-Expiring Payment Channels
     - Symmetric Commitment Transactions
 - Routable Channels (Lightning Network)
     - Hashed Contracts
