@@ -145,7 +145,7 @@ The advantage of this style of payment channel is that it is extremely simple. T
 
 #### Redeeming a Commitment transaction
 
-To redeem a commitment transaction, Bob broadcasts the transaction with the following witness:
+To redeem a commitment transaction, Bob broadcasts the transaction with the following unlocking script:
 
 ```
 <Alice's sig> <Bob's sig> 1
@@ -153,7 +153,7 @@ To redeem a commitment transaction, Bob broadcasts the transaction with the foll
 
 #### Redeeming the refund
 
-After the payment channel expiry duration, Alice an get a refund for the contents of the channel by constructing a refund transaction. This takes the anchor transaction output as its input and sends all the funds to her public key. The witness for the transation is:
+After the payment channel expiry duration, Alice an get a refund for the contents of the channel by constructing a refund transaction. This takes the anchor transaction output as its input and sends all the funds to her public key. The unlocking script for the transation is:
 
 ```
 <Alice's sig> 0
@@ -172,9 +172,9 @@ The trick to creating revocable transactions is to construct one of the TXOs suc
 - Bob's signature and a relative timelock (Bob's *spend branch*); or
 - Alice's signature and a secret hash provided by Bob (Alice's *revocation* branch).
 
-To revoke the transaction, Bob reveals the pre-image of his secret hash to Alice. Bob is now no longer able to broadcast the revoked transaction. Because Bob's spending branch is encumbered by a timelock, Alice will have the chance to spend before Bob.
+To revoke the transaction, Bob reveals the pre-image of his secret hash to Alice. Bob is now no longer able to broadcast the revoked transaction. His spending branch is encumbered by a timelock, so Alice will have the chance to spend before him.
 
-We'll call this type of TXO a *revocable TXO* or *rTXO* for short:
+We'll call this type of TXO a *revocable TXO* or *rTXO* for short. The revocation hash is called *rhash* and its pre-image is *r*.
 
 ![Revocable Transaction](./Revocable_Transaction1.svg)
 
@@ -216,3 +216,25 @@ If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by p
 ```
 <Alice's sig> <revocation pre-image> 0
 ```
+
+#### Using revocable transactions to construct two-way payment channels
+
+To create a two-way payment channel, Alice constructs the anchor transaction exactly as before (one spend transaction to a 2-of-2 multi-sig and one refund transaction to herself after the channel expiry duration). The difference from the one-way payment channel is in the construction of the commitment transactions: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash provided by Bob.
+
+![Two-way Channel - First commitment](./two-way-channel1.svg)
+
+If Alice wants to increase Bob's balance in the channel to 0.02 BTC, she continues in exactly the same way as for the one-way payment channel. She constructs a new commitment transaction which sends 0.98 BTC to herself and 0.02 BTC to Bob. Again, the only difference is that the TXO for Bob is an rTXO:
+
+![Two-way Channel - Second commitment](./two-way-channel2.svg)
+
+You'll notice that the rTXO in commitment transaction uses the same rhash as for commitment transaction 1. Why is that? Well, revocation hashes only come into play when Alice wants to reduce Bob's balance in the channel. Since we're increasing Bob's balance, we're not going to revoke the transaction, so we can continue to use the same rhash.
+
+Next, Alice wants to reduce Bob's balance back to 0.01 BTC. Bob provides her with a new rhash (rhash2), which she uses to construct commitment transaction 3. Once she's sent commitment transaction 3 to Bob, Bob sends her r1 (the preimage of rhash1), which revokes commitment 1 and commitment 2:
+
+![Two-way Channel - Third commitment](./two-way-channel3.svg)
+
+Finally, Alice wants to increase Bob's balance to 0.02 BTC again. She constructs commitment transaction 4 using rhash2:
+
+![Two-way Channel - Fourth commitment](./two-way-channel4.svg)
+
+Bob can close the channel as soon as the rTXO timeout duration has elapsed by signing and broadcasting the most recent commitment transaction.
