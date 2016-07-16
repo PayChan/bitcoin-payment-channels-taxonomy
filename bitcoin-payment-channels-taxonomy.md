@@ -73,7 +73,7 @@ Once a transaction has a valid witness, it is valid forever. However, it can be 
 
 ![Invalidated Transaction](./Transaction_Types4.svg)
 
-## Unidirectional, Fixed-duration Payment Channel
+## Simple Payment Channel
 
 This is the simplest form of Payment Channel. It is **One-way**, **Simplex** or **Unidirectional**, which means that funds can only flow in one direction from payer to recipient. It is also **Fixed-duration**, which means that the payment channel has to be closed out with a *closing transaction* after a fixed time period. If the payer wishes to continue paying the recipient through a channel after this time, she must open a fresh payment channel with a new *anchor transaction*.
 
@@ -96,7 +96,7 @@ The locking script is as follows:
 OP_IF
   <Bob's public key> OP_CHECKSIGVERIFY # Spend branch - requires both signatures
 OP_ELSE
-  <channel expiry duration> OP_CHECKSEQUENCEVERIFY OP_DROP # Refund branch - after the channel expiry duration only Alice's signature is requiredduration
+  <channel expiry duration> OP_CHECKSEQUENCEVERIFY OP_DROP # Refund branch - after the channel expiry duration only Alice's signature is required
 OP_ENDIF
 <Alice's public key> OP_CHECKSIG # Both branches require Alice's signature
 ```
@@ -159,7 +159,7 @@ After the payment channel expiry duration, Alice an get a refund for the content
 <Alice's sig> 0
 ```
 
-## Bidirection Channels
+## Two-way Channels
 
 One of the most obvious limitations of the simple payment channel is that it is one-way. Bob's balance in the channel can only ever increase, and Alice's balance can only ever decrease. This is because every commitment transaction that Alice signs and sends to Bob is valid forever (at least until one of them is broadcast and confirmed). Even if Alice constructs and signs a new transaction with a smaller balance for Bob, Bob will always be able to broadcast the commitment trasaction which assigns him the greatest balance. Alice has no way to stop Bob from doing this, and no way to invalidate the old commitment trasactions.
 
@@ -176,27 +176,29 @@ To revoke the transaction, Bob reveals the pre-image of his secret hash to Alice
 
 We'll call this type of TXO a *revocable TXO* or *rTXO* for short:
 
-![Revocable Transaction](./Revokable_Transaction1.svg)
+![Revocable Transaction](./Revocable_Transaction1.svg)
 
 We're going to use revocable TXOs *a lot* for more advanced channels, so it makes sense to have a special notation for them:
 
-![Revocable Transaction - Notation](./Revokable_Transaction2.svg)
+![Revocable Transaction - Notation](./Revocable_Transaction2.svg)
+
+Conceptually, the combined up/down facing arrow indicates that the rTXO can be reversed.
 
 Transactions will normally have multiple TXOs. Within a payment channel, there will be one TXO for Alice's balance, and an rTXO for Bob's balance (which reverts to Alice when the rTXO is revoked):
 
-![Full Revocable Transaction](./Revokable_Transaction3.svg)
+![Full Revocable Transaction](./Revocable_Transaction3.svg)
 
 Once Bob has revealed the hash pre-image, he's no longer able to broadcast the revocable transaction since Alice would be able to collect her spend TXO as well as the rTXO. The transaction has been revoked:
 
-![Revoked Transcation](./Revokable_Transaction4.svg)
+![Revoked Transcation](./Revocable_Transaction4.svg)
 
-The locking script for a revokable transaction is:
+The locking script for a revocable transaction is:
 
 ```
 OP_IF # Bob's spend branch - after the revocation timeout duration, Bob can spend with just his signature
   <TXO revocation timeout duration> OP_CHECKSEQUENCEVERIFY OP_DROP
   <Bob's public key>
-OP_ELSE # Revocation branch - after the revocation pre-image is revealed, Alice can spend immediately with her signature
+OP_ELSE # Revocation branch - once the revocation pre-image is revealed, Alice can spend immediately with her signature
   OP_HASH160 <revocation hash> OP_EQUALVERIFY OP_DROP
   <Alice's public key>
 OP_ENDIF
@@ -209,7 +211,7 @@ For Bob to spend the TXO, he needs to wait for the revocation timeout duration a
 <Bob's sig> 1
 ```
 
-If the transaction has been revoked, but Bob broadcasts it anyway, Alice can claim the revocation TXO by providing the following unlocking script:
+If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by providing the following unlocking script:
 
 ```
 <Alice's sig> <revocation pre-image> 0

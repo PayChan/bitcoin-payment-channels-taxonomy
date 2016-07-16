@@ -44,7 +44,7 @@
 <p><img src="./Transaction_Types3.svg" alt="Overwritten Transaction"></p>
 <p>Once a transaction has a valid witness, it is valid forever. However, it can be invalidated by creating and broadcasting a new transaction which uses the same TXOs that were the TXIs for the old transaction. We’ll colour transactions that have been invalidated in this way red:</p>
 <p><img src="./Transaction_Types4.svg" alt="Invalidated Transaction"></p>
-<h2><a id="Unidirectional_Fixedduration_Payment_Channel_75"></a>Unidirectional, Fixed-duration Payment Channel</h2>
+<h2><a id="Simple_Payment_Channel_75"></a>Simple Payment Channel</h2>
 <p>This is the simplest form of Payment Channel. It is <strong>One-way</strong>, <strong>Simplex</strong> or <strong>Unidirectional</strong>, which means that funds can only flow in one direction from payer to recipient. It is also <strong>Fixed-duration</strong>, which means that the payment channel has to be closed out with a <em>closing transaction</em> after a fixed time period. If the payer wishes to continue paying the recipient through a channel after this time, she must open a fresh payment channel with a new <em>anchor transaction</em>.</p>
 <p>As is tradition, Alice is the payer and Bob is the recipient. Alice wishes to pay Bob in increments of 0.01 BTC up to a maximum of 1 BTC.</p>
 <h3><a id="Opening_the_channel_81"></a>Opening the channel</h3>
@@ -59,7 +59,7 @@
 <pre><code>OP_IF
   &lt;Bob's public key&gt; OP_CHECKSIGVERIFY # Spend branch - requires both signatures
 OP_ELSE
-  &lt;channel expiry duration&gt; OP_CHECKSEQUENCEVERIFY OP_DROP # Refund branch - requires Alice's signature only after the channel expiry duration
+  &lt;channel expiry duration&gt; OP_CHECKSEQUENCEVERIFY OP_DROP # Refund branch - after the channel expiry duration only Alice's signature is required
 OP_ENDIF
 &lt;Alice's public key&gt; OP_CHECKSIG # Both branches require Alice's signature
 </code></pre>
@@ -91,33 +91,49 @@ OP_ENDIF
 <li>the funds in the channel are exhausted and the most recent commitment transaction sends 1 BTC to Bob and 0 to Alice. At this point, Bob should just sign and broadcast that commitment transaction and collect the 1 BTC.</li>
 <li>The payment channel expiry duration is reached. At this point Alice can reclaim all of the funds in the channel. Bob should never let this happen, so should sign and broadcast the latest commitment transaction well before the expiry duration.</li>
 </ol>
-<h4><a id="Redeeming_a_Commitment_transaction_143"></a>Redeeming a Commitment transaction</h4>
+<p>The advantage of this style of payment channel is that it is extremely simple. The locking script is essentially a two-of-two multisig in the spend branch, or a P2SH with relative timelock in the refund branch. The channel is also almost entirely passive from Bob’s point of view. He simply needs to keep hold of the commitment transactions, and then sign and broadcast the most recent one when he’s ready to close the channel. Simple channels should be very straightforward for wallets and applications to implement.</p>
+<h4><a id="Redeeming_a_Commitment_transaction_145"></a>Redeeming a Commitment transaction</h4>
 <p>To redeem a commitment transaction, Bob broadcasts the transaction with the following witness:</p>
 <pre><code>&lt;Alice's sig&gt; &lt;Bob's sig&gt; 1
 </code></pre>
-<h4><a id="Redeeming_the_refund_151"></a>Redeeming the refund</h4>
+<h4><a id="Redeeming_the_refund_153"></a>Redeeming the refund</h4>
 <p>After the payment channel expiry duration, Alice an get a refund for the contents of the channel by constructing a refund transaction. This takes the anchor transaction output as its input and sends all the funds to her public key. The witness for the transation is:</p>
 <pre><code>&lt;Alice's sig&gt; 0
 </code></pre>
-<h2><a id="TODO_159"></a>TODO</h2>
+<h2><a id="TwoWay_Channels_161"></a>Two-Way Channels</h2>
+<p>One of the most obvious limitations of the simple payment channel is that it is one-way. Bob’s balance in the channel can only ever increase, and Alice’s balance can only ever decrease. This is because every commitment transaction that Alice signs and sends to Bob is valid forever (at least until one of them is broadcast and confirmed). Even if Alice constructs and signs a new transaction with a smaller balance for Bob, Bob will always be able to broadcast the commitment trasaction which assigns him the greatest balance. Alice has no way to stop Bob from doing this, and no way to invalidate the old commitment trasactions.</p>
+<p>However, there is a trick that allows Alice to ensure that Bob can’t use a previous commitment transaction to claim a old balance. This trick uses hash pre-images and timelocks to construct a <em>revocable</em> transaction. That’s what we’ll look at next.</p>
+<h4><a id="Revocable_Transactions_167"></a>Revocable Transactions</h4>
+<p>The trick to creating revocable transactions is to construct one of the TXOs such that it is either encumbered by:</p>
 <ul>
-<li>Run through the script execution for simple payment channels</li>
-<li>Message exchange order for simple payment channels</li>
-<li>Bidirectional, Fixed-duration Payment Channels
-<ul>
-<li>Revokable Transactions</li>
+<li>Bob’s signature and a relative timelock (Bob’s <em>spend branch</em>); or</li>
+<li>Alice’s signature and a secret hash provided by Bob (Alice’s <em>revocation</em> branch).</li>
 </ul>
-</li>
-<li>Bidirectional, Non-Expiring Payment Channels
-<ul>
-<li>Symmetric Commitment Transactions</li>
-</ul>
-</li>
-<li>Routable Channels (Lightning Network)
-<ul>
-<li>Hashed Time-Lock Contracts</li>
-</ul>
-</li>
-</ul>
+<p>To revoke the transaction, Bob reveals the pre-image of his secret hash to Alice. Bob is now no longer able to broadcast the revoked transaction. Because Bob’s spending branch is encumbered by a timelock, Alice will have the chance to spend before Bob.</p>
+<p>We’ll call this type of TXO a <em>revocable TXO</em> or <em>rTXO</em> for short:</p>
+<p><img src="./Revocable_Transaction1.svg" alt="Revocable Transaction"></p>
+<p>We’re going to use revocable TXOs <em>a lot</em> for more advanced channels, so it makes sense to have a special notation for them:</p>
+<p><img src="./Revocable_Transaction2.svg" alt="Revocable Transaction - Notation"></p>
+<p>Conceptually, the combined up/down facing arrow indicates that the rTXO can be reversed.</p>
+<p>Transactions will normally have multiple TXOs. Within a payment channel, there will be one TXO for Alice’s balance, and an rTXO for Bob’s balance (which reverts to Alice when the rTXO is revoked):</p>
+<p><img src="./Revocable_Transaction3.svg" alt="Full Revocable Transaction"></p>
+<p>Once Bob has revealed the hash pre-image, he’s no longer able to broadcast the revocable transaction since Alice would be able to collect her spend TXO as well as the rTXO. The transaction has been revoked:</p>
+<p><img src="./Revocable_Transaction4.svg" alt="Revoked Transcation"></p>
+<p>The locking script for a revocable transaction is:</p>
+<pre><code>OP_IF # Bob's spend branch - after the revocation timeout duration, Bob can spend with just his signature
+  &lt;TXO revocation timeout duration&gt; OP_CHECKSEQUENCEVERIFY OP_DROP
+  &lt;Bob's public key&gt;
+OP_ELSE # Revocation branch - once the revocation pre-image is revealed, Alice can spend immediately with her signature
+  OP_HASH160 &lt;revocation hash&gt; OP_EQUALVERIFY OP_DROP
+  &lt;Alice's public key&gt;
+OP_ENDIF
+OP_CHECKSIG
+</code></pre>
+<p>For Bob to spend the TXO, he needs to wait for the revocation timeout duration and then provide the following unlocking script:</p>
+<pre><code>&lt;Bob's sig&gt; 1
+</code></pre>
+<p>If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by providing the following unlocking script:</p>
+<pre><code>&lt;Alice's sig&gt; &lt;revocation pre-image&gt; 0
+</code></pre>
 
 </body></html>
