@@ -21,14 +21,3 @@ A few things the article doesn't cover:
 This document is necessarily a work in progress. The rate of innovation in this area is extremely rapid, and new varieties of payment channels will most likely continue to be developed. Please direct any feedback to [@jonnynewbs](http://www.twitter.com/jonnynewbs) or raise a ticket against [the github repo](http://www.github.com/paychan/bitcoin-payment-channels-taxonomy).
 
 The article as available at (http://paychan.github.io/bitcoin-payment-channels-taxonomy).
-
-#### TODO
-
-- Run through the script execution for simple payment channels
-- Message exchange order for simple payment channels
-- Non-Expiring Payment Channels
-    - Symmetric Commitment Transactions
-    - recharching a payment channel
-- Routable Channels (Lightning Network)
-    - Hashed Contracts
-    - Hashed Time-Lock Contracts
