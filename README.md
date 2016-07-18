@@ -1,6 +1,16 @@
 # Bitcoin Payment Channels, A Taxonomy
 
-This document is a description of the various kinds of payment channels that are possible in Bitcoin. It is a top-to-bottom description of the operation of the channel including the order and exchange of transactions and the the full locking (*scriptPubKey*) and unlocking (*scriptSig*) scripts. The reader is assumed to have a knowledge of the format of bitcoin transactions and transaction outputs, the concept of pay-to-[witness-]script-hash and the workings of opcodes and the Script language. No prior knowledge of payment channels is assumed.
+The concept of a payment channel in Bitcoin has been around for several years, but recent changes to the protocol (**OP_CHECKLOCKTIMEVERIFY**, **OP_CHECKSEQUENCEVERIFY**, Segregated Witness) have made much more powerful constructions of payment channels possible.
+
+As far as I'm aware, there haven't been any resources that describe all the different varieties of payment channels possible today. Much of the available material is now obsolete and contains overly complex constructions to achieve what is possible today with far more elegant solutions.
+
+This document is an attempt to describe the various kinds of payment channels that are possible in Bitcoin. It covers:
+
+- the operation of the channel including the opening (*anchor*) transaction, the commitment states and the channel closing conditions
+- the order and exchange of transactions for commitment state changes
+- the full locking (*scriptPubKey*) and unlocking (*scriptSig*) scripts for all tranactions.
+
+The reader is assumed to have a knowledge of the format of bitcoin transactions and transaction outputs, the concept of pay-to-[witness-]script-hash and the workings of opcodes and the Script language. No prior knowledge of payment channels is assumed.
 
 A few things the article doesn't cover:
 
@@ -16,11 +26,9 @@ The article as available at (http://paychan.github.io/bitcoin-payment-channels-t
 
 - Run through the script execution for simple payment channels
 - Message exchange order for simple payment channels
-- Two-way Payment Channels
 - Non-Expiring Payment Channels
     - Symmetric Commitment Transactions
+    - recharching a payment channel
 - Routable Channels (Lightning Network)
     - Hashed Contracts
     - Hashed Time-Lock Contracts
-
-
