@@ -62,14 +62,14 @@
 <p>This is the simplest form of Payment Channel. It is <strong>One-way</strong>, <strong>Simplex</strong> or <strong>Unidirectional</strong>, which means that funds can only flow in one direction from payer to recipient. It is also <strong>Fixed-duration</strong>, which means that the payment channel has to be closed out with a <em>closing transaction</em> after a fixed time period. If the payer wishes to continue paying the recipient through a channel after this time, she must open a fresh payment channel with a new <em>anchor transaction</em>.</p>
 <p>As is tradition, Alice is the payer and Bob is the recipient. Alice wishes to pay Bob in increments of 0.01 BTC up to a maximum of 1 BTC.</p>
 <h4><a id="Opening_the_channel_97"></a>Opening the channel</h4>
-<p>The Channel is opened with an anchor transaction, which is constructed and signed by Alice, and broadcast to the Bitcoin network. The anchor transaction has a single TXO which can be spent either:</p>
+<p>To open the channel, Alice constructs and sigs an anchor transaction and then broadcasts it to the Bitcoin network. The anchor transaction has a single TXO which can be spent either:</p>
 <ol>
 <li>with both Bob and Alice’s signatures. This is the <em>spend</em> branch; or</li>
 <li>with Alice’s signature after a channel expiration duration (eg 24 hours). This is the <em>refund</em> branch.</li>
 </ol>
 <p><img src="./Simple_Channel1.svg" alt="Simple Channel - Funded"></p>
-<p>Alice needs a refund branch to protect her funds from being stranded in the channel. This goes back to the fundamental <em>escape</em> property of channels - both parties must have an escape route to reclaim their funds at all times in the channel’s existence. If the anchor transaction didn’t have a refund branch and was just a 2-of-2 multisig, then Alice wouldn’t have an escape route.</p>
-<p>This is a problem because without an escape route, Alice’s funds could become stranded or held to ransom inside the channel. If Bob stops responding to Alice’s messages (either inadvertently or maliciously), Alice would have no way to get her funds back. A malicious Bob might hold Alice’s funds to ransom and only agree to unlock the multisig TXO in return for a ransom fee.</p>
+<p>Alice needs a refund branch to protect her funds from being stranded in the channel. This is required for the fundamental <em>escape</em> property of channels - both parties must have an escape route to reclaim their funds at all times in the channel’s existence. If the anchor transaction didn’t have a refund branch and was just a 2-of-2 multisig, then Alice wouldn’t have an escape route.</p>
+<p>Without an escape route Alice’s funds could become stranded or held to ransom inside the channel. If Bob stops responding to Alice’s messages (either inadvertently or maliciously), Alice would have no way to get her funds back. A malicious Bob might hold Alice’s funds to ransom and only agree to unlock the multisig TXO in return for a ransom fee.</p>
 <p>The locking script is as follows:</p>
 <pre><code>OP_IF
   &lt;Bob's public key&gt; OP_CHECKSIGVERIFY # Spend branch - requires both signatures
@@ -85,7 +85,7 @@ OP_ENDIF
 </ul>
 <p>Both of those TXOs can be standard P2PKHs.</p>
 <p>We’re now in commitment state 1:</p>
-<p><img src="./Simple_Channel3.svg" alt="Simple Channel - first commitment"></p>
+<p><img src="./Simple_Channel2.svg" alt="Simple Channel - first commitment"></p>
 <p>Let’s check the commitment state properties:</p>
 <ol>
 <li>Both parties agree that Alice’s balance is 0.99 BTC and Bob’s balance is 0.01 BTC.</li>
@@ -99,7 +99,7 @@ OP_ENDIF
 <li>TXO2 is for 0.98 BTC and can be spent with Alice’s signature</li>
 </ul>
 <p>Commitment state 2 looks like this:</p>
-<p><img src="./Simple_Channel4.svg" alt="Simple Channel - second commitment"></p>
+<p><img src="./Simple_Channel3.svg" alt="Simple Channel - second commitment"></p>
 <p>In effect, this is a double-spend of the anchor transaction TXO, so only one of those transactions can be included in the blockchain.</p>
 <p>Let’s check the commitment state properties again:</p>
 <ol>
@@ -108,7 +108,7 @@ OP_ENDIF
 <li>Both parties are guaranteed their full balance: Alice gets at least 0.98 BTC in both escape paths. Bob can guarantee he’ll get 0.02 BTC by broadcasting choosing to broadcast CTx2 (and not broadcasting CTx1!), and making sure CTx2 is broadcast before Alice broadcasts the refund transaction. Alice doesn’t have Bob’s signature for any of the CTxs, so can’t broadcast an old CTx that pays Bob a lower balance.</li>
 </ol>
 <p>Alice can continue paying Bob through the payment channel in this fashion. Each time she wants to pay another 0.01 BTC to Bob, she constructs a new CTx from the same anchor transaction output and sends it to Bob.</p>
-<p><img src="./Simple_Channel5.svg" alt="Simple Channel - multiple commitments"></p>
+<p><img src="./Simple_Channel4.svg" alt="Simple Channel - multiple commitments"></p>
 <p>This continues until one of the following happens:</p>
 <ol>
 <li>Bob wishes to close out the channel, and so signs and broadcasts the most recent CTx.</li>
@@ -203,10 +203,30 @@ OP_CHECKSIG
 <p><img src="./symmetric-channel2.svg" alt="Symmetric Channel - State transition"></p>
 <p>If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by sending a new revocation hash to Alice).</p>
 <p>The TXOs in a symmetric transaction are exactly the same is in the two-way transaction described earlier. The only difference is that the anchor transaction is a simple 2-of-2 multisig, and the commitment transactions are constructed as a symmetric pair and exchanged using a 3-way handshake.</p>
-<h4><a id="Closing_the_channel_316"></a>Closing the channel</h4>
+<h4><a id="Recharging_the_channel_316"></a>Recharging the channel</h4>
+<p>Since there is no refund transaction in this type of channel, it’s possible for either party to add fresh funds to the payment channel. If one party runs out of funds in the channel, they may want to recharge the payment channel with additional funds (one blockchain transaction) rather than close the channel and open a new channel (two transactions).</p>
+<p>Let’s assume Alice wants to add funds to the channel. The process is as follows:</p>
+<ul>
+<li>Alice constructs and signs a second anchor transaction ATx2 to the 2-of-2 multisig address for Alice and Bob, but she doesn’t broadcast or share it.</li>
+<li>Alice sends the txid (the hash of the transaction) to Bob, along with a new revocation hash h(revA2-1).</li>
+<li>Bob constructs a new commitment transaction CTxB2-1 as follows:
+<ul>
+<li>The TXIs are the TXOs from both Atx and ATx2</li>
+<li>Bob’s balance is the same is it was in the previous CTx</li>
+<li>Alice’s balance is her balance from the previous CTx plus the additional funds she’s just paid into the channel with ATx2</li>
+<li>the revocation hash is h(revA2-1)</li>
+</ul>
+</li>
+<li>Bob sends CTxB2-1 to Alice, along with a new revocation hash h(revB2-1).</li>
+<li>Alice constructs her first commitment transaction CTxA2-1. This is the mirror of Bob’s commitment transaction CTxB2-1.</li>
+<li>Alice broadcasts ATx2 to the Bitcoin network</li>
+<li>Alice sends the revocation pre-image from the previous CTxA to Bob.</li>
+<li>Bob sends the revocation pre-image from the previous CTxB to Alice.</li>
+</ul>
+<h4><a id="Closing_the_channel_335"></a>Closing the channel</h4>
 <p>In any commitment state, both parties hold a valid commitment transaction. Either party can close out the channel by broadcasting the commitment transaction after waiting for the revocation timeout duration.</p>
 <p><img src="./symmetric-channel3.svg" alt="Symmetric Channel - Closing the channel"></p>
-<h2><a id="Routable_payment_channels_322"></a>Routable payment channels</h2>
+<h2><a id="Routable_payment_channels_341"></a>Routable payment channels</h2>
 <p>Payment channels exist between two parties. With the payment channels we’ve looked at so far, if Alice wants to pay or be paid by a new counterparty, she would need to open a new payment channel with that party. That limits the scalability of payment channels since for every new channel we need to broadcast two transactions to the blockchain. In the worst case (where the parties only want to execute a single payment) this is actually <em>worse</em> than simply broadcasting a single transaction to the blockchain.</p>
 <p>However, if we could somehow link payment channels together and route payments through them, we wouldn’t need to open a new channel for each new recipient. For example, imagine:</p>
 <ul>
@@ -218,7 +238,7 @@ OP_CHECKSIG
 <p>The naive way to do this would be for Alice to pay Bob and then ask Bob to pay Carol. That requires Alice to trust Bob with her payment and would allow a malicious Bob to steal Alice’s money instead of delivering it to Carol.</p>
 <p>However, using a trick similar to the revocation hashes used earlier, Alice can pay Carol through Bob without having any trust in Bob. The trick uses <em>Hashed Time-lock Contracts</em> (<em>HTLCs</em>) to link the payment channels together. Payment channels that are linked into a network in this way are called a <em>lightning network</em>.</p>
 <p>The next two sections introduce the concepts of hashed contracts and hashed time-locked contracts independently from payment channels. Finally, we’ll see how to embed those HTLCs within the everlasting payment channel described above to create a network of routable payment channels.</p>
-<h4><a id="Hashed_contracts_340"></a>Hashed contracts</h4>
+<h4><a id="Hashed_contracts_359"></a>Hashed contracts</h4>
 <p>Imagine Alice wants to pay Carol, but Alice only has AliceCoins and Carol only accepts CarolCoins. Luckily, they both know Bob, and Bob is happy to buy and sell in AliceCoins <em>or</em> CarolCoins. Alice wants to find a way to pay Bob in AliceCoins and make sure that he pays onwards to Carol.</p>
 <p>Alice doesn’t trust Bob enough to pay him and know that he’ll pay onwards to Carol, and Bob doesn’t trust Alice enough to pay Carol and know that he’ll be able to collect payment from Alice.</p>
 <p>Alice needs a contract that says &quot;<em>I promise to pay Bob if he proves he’s paying Alice</em>&quot;. Simultaneously, Bob needs a contract that says &quot;<em>I promise to pay Carol if Alice proves she’ll pay me</em>&quot;.</p>
@@ -241,7 +261,7 @@ OP_CHECKSIG
 <pre><code>&lt;Bob's sig&gt; &lt;con&gt;
 </code></pre>
 <p>Bob can issue exactly the same contract to Carol, just swapping his public key in the locking script for Carol’s.</p>
-<h4><a id="Hashed_Timelocked_contracts_377"></a>Hashed Time-locked contracts</h4>
+<h4><a id="Hashed_Timelocked_contracts_396"></a>Hashed Time-locked contracts</h4>
 <p>If you’ve been reading carefully, you’ll notice that there’s a problem with the hashed contract protocol. It’s exactly the same problem as when Alice opened her first simple payment channel with Bob. The problem is that as soon as Alice broadcast her first transaction at stage (1), if Bob stops responding (either inavertently or maliciously), her funds are stranded in a hashed contract and she can’t get them back. Even worse, if Carol stops responding after Bob broadcasts his transaction in step (2), his funds are stranded in a hashed contract <em>and</em> Alice’s funds are stranded in a hashed contract. Obviously, the longer the chain of hashed contracts, the more risk there is that one of the parties in the chain will disappear and strand everyone’s funds.</p>
 <p>The solution to this is basically the same as Alice’s refund branch in the simple payment channel. Each hashed contract contains its own refund branch that means the contract payer can reclaim the funds if the recipient doesn’t redeem the contract using the contract pre-image within a certain timelock duration. A hashed contract with a timelocked refund branch is called a Hashed Time-locked Contract or HTLC.</p>
 <p>There are a couple of subtleties here:</p>
@@ -267,7 +287,7 @@ OP_CHECKSIG
 <p>Alice’s refund unlocking script is:</p>
 <pre><code>&lt;Alice's sig&gt; 0
 </code></pre>
-<h4><a id="Embedding_an_HTLC_into_a_payment_channel_417"></a>Embedding an HTLC into a payment channel</h4>
+<h4><a id="Embedding_an_HTLC_into_a_payment_channel_436"></a>Embedding an HTLC into a payment channel</h4>
 <p>We can now embed the HTLC in a payment channel by adding the HTLC as a TXO to the commitment script. To add a routed payment, we transition from a commitment state without the HTLC to a new commitment state where the commitment transactions contain an HTLC:</p>
 <p>There’s one very small detail that needs to change in the HTLC before we can do that. The parties in the channel need to be able to revoke HTLCs in previous commitment states, just like they’re able to revoke the rTXOs. The HTLC is redeemable in three ways:</p>
 <ul>

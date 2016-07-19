@@ -97,16 +97,16 @@ As is tradition, Alice is the payer and Bob is the recipient. Alice wishes to pa
 
 #### Opening the channel
 
-The Channel is opened with an anchor transaction, which is constructed and signed by Alice, and broadcast to the Bitcoin network. The anchor transaction has a single TXO which can be spent either:
+To open the channel, Alice constructs and sigs an anchor transaction and then broadcasts it to the Bitcoin network. The anchor transaction has a single TXO which can be spent either:
 
 1. with both Bob and Alice's signatures. This is the *spend* branch; or
 2. with Alice's signature after a channel expiration duration (eg 24 hours). This is the *refund* branch.
 
 ![Simple Channel - Funded](./Simple_Channel1.svg)
 
-Alice needs a refund branch to protect her funds from being stranded in the channel. This goes back to the fundamental *escape* property of channels - both parties must have an escape route to reclaim their funds at all times in the channel's existence. If the anchor transaction didn't have a refund branch and was just a 2-of-2 multisig, then Alice wouldn't have an escape route.
+Alice needs a refund branch to protect her funds from being stranded in the channel. This is required for the fundamental *escape* property of channels - both parties must have an escape route to reclaim their funds at all times in the channel's existence. If the anchor transaction didn't have a refund branch and was just a 2-of-2 multisig, then Alice wouldn't have an escape route.
 
-This is a problem because without an escape route, Alice's funds could become stranded or held to ransom inside the channel. If Bob stops responding to Alice's messages (either inadvertently or maliciously), Alice would have no way to get her funds back. A malicious Bob might hold Alice's funds to ransom and only agree to unlock the multisig TXO in return for a ransom fee.
+Without an escape route Alice's funds could become stranded or held to ransom inside the channel. If Bob stops responding to Alice's messages (either inadvertently or maliciously), Alice would have no way to get her funds back. A malicious Bob might hold Alice's funds to ransom and only agree to unlock the multisig TXO in return for a ransom fee.
 
 The locking script is as follows:
 
@@ -128,7 +128,7 @@ Both of those TXOs can be standard P2PKHs.
 
 We're now in commitment state 1:
 
-![Simple Channel - first commitment](./Simple_Channel3.svg)
+![Simple Channel - first commitment](./Simple_Channel2.svg)
 
 Let's check the commitment state properties:
 
@@ -145,7 +145,7 @@ Let's assume that Bob hasn't closed out the channel and Alice wants to pay a fur
 
 Commitment state 2 looks like this:
 
-![Simple Channel - second commitment](./Simple_Channel4.svg)
+![Simple Channel - second commitment](./Simple_Channel3.svg)
 
 In effect, this is a double-spend of the anchor transaction TXO, so only one of those transactions can be included in the blockchain.
 
@@ -157,7 +157,7 @@ Let's check the commitment state properties again:
 
 Alice can continue paying Bob through the payment channel in this fashion. Each time she wants to pay another 0.01 BTC to Bob, she constructs a new CTx from the same anchor transaction output and sends it to Bob.
 
-![Simple Channel - multiple commitments](./Simple_Channel5.svg)
+![Simple Channel - multiple commitments](./Simple_Channel4.svg)
 
 This continues until one of the following happens:
 
@@ -313,6 +313,25 @@ If Alice wants to pay Bob in the channel, she needs to transition the channel to
 If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by sending a new revocation hash to Alice).
 
 The TXOs in a symmetric transaction are exactly the same is in the two-way transaction described earlier. The only difference is that the anchor transaction is a simple 2-of-2 multisig, and the commitment transactions are constructed as a symmetric pair and exchanged using a 3-way handshake.
+
+#### Recharging the channel
+
+Since there is no refund transaction in this type of channel, it's possible for either party to add fresh funds to the payment channel. If one party runs out of funds in the channel, they may want to recharge the payment channel with additional funds (one blockchain transaction) rather than close the channel and open a new channel (two transactions).
+
+Let's assume Alice wants to add funds to the channel. The process is as follows:
+
+- Alice constructs and signs a second anchor transaction ATx2 to the 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it.
+- Alice sends the txid (the hash of the transaction) to Bob, along with a new revocation hash h(revA2-1).
+- Bob constructs a new commitment transaction CTxB2-1 as follows:
+    - The TXIs are the TXOs from both Atx and ATx2
+    - Bob's balance is the same is it was in the previous CTx
+    - Alice's balance is her balance from the previous CTx plus the additional funds she's just paid into the channel with ATx2
+    - the revocation hash is h(revA2-1)
+- Bob sends CTxB2-1 to Alice, along with a new revocation hash h(revB2-1).
+- Alice constructs her first commitment transaction CTxA2-1. This is the mirror of Bob's commitment transaction CTxB2-1.
+- Alice broadcasts ATx2 to the Bitcoin network
+- Alice sends the revocation pre-image from the previous CTxA to Bob.
+- Bob sends the revocation pre-image from the previous CTxB to Alice.
 
 #### Closing the channel
 
