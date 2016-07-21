@@ -261,7 +261,7 @@ You'll notice that the rTXO in commitment transaction uses the same revocation s
 
 This is an important point which will be relied upon later. Revocation secrets only need to be revealed when the balance in a rTXO decreases. If the amount encumbered with the revocation secret increases from one commitment state to the next, the same revocation secret can be used.
 
-If Bob now wants to pay Alice 0.01 BTC and reduce his balance back to 0.01 BTC, he provides her with a new rhash (rhash2), which she uses to construct CTx3. Once she's sent CTx3 to Bob, Bob sends her rev1, which revokes CTx1 and CTx2:
+If Bob now wants to pay Alice 0.01 BTC and reduce his balance back to 0.01 BTC, he provides her with a new revocation hash (*hash(rev2)*), which she uses to construct CTx3. Once she's sent CTx3 to Bob, Bob sends her rev1, which revokes CTx1 and CTx2:
 
 ![Two-way Channel - Third commitment](./two-way-channel3.svg)
 
@@ -285,15 +285,15 @@ With revocable transactions, we have a new method of preventing funds from being
 
 #### Opening an everlasting payment channel
 
-The anchor transaction for a symmetric payment channel is simply a 2-of-2 multisig transaction. Alice's branch is no longer a refund branch, but a mirror of Bob's spend branch, so the anchor transaction TXO doesn't need a relative locktime branch for Alice.
+The anchor transaction for a symmetric payment channel is simply a 2-of-2 multisig transaction. Alice's branch is no longer a refund branch, but a mirror of Bob's spend branch, so the anchor transaction TXO doesn't need a relative locktime refund branch for Alice.
 
 We do need to be a bit careful in opening the payment channel. If Alice just pays into a multisig address, then her funds could be stranded if Bob disappears. Therefore, the sequence for opening a symmetric transaction is as follows:
 
-- Alice constructs and signs an anchor transaction to a 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it.
+- Alice constructs an anchor transaction to a 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it.
 - Alice sends the txid (the hash of the transaction) to Bob, along with her first revocation hash h(revA1).
 - Bob constructs his first commitment transaction CTxB1 using h(revA1) and sends it to Alice, along with his first revocation hash h(revB1).
 - Alice constructs her first commitment transaction CTxA1 using h(revB1) and sends it to Bob.
-- Alice broadcasts the anchor transaction.
+- Alice signs and broadcasts the anchor transaction.
 
 ![Everlasting Channel - Commitment State 1](./Everlasting_Channel1.svg)
 
