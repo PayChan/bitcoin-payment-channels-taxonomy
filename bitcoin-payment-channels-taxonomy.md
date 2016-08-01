@@ -1,6 +1,36 @@
 # Bitcoin Payment Channels, A Taxonomy
 
-## Introduction
+# Table of Contents
+
+-  1 Introduction
+-  2 A brief overview
+-  3 Diagram style
+    -  3.1 Transaction graphs
+        - Transaction types
+    -  3.2 Message Exchange Diagrams
+    -  3.3 Payment Channel Balance Diagrams
+-  4 Simple Payment Channel
+    -  4.1 Opening the channel
+    -  4.2 Updating balances in the channel
+    -  4.3 Redeeming a Commitment Transaction
+    -  4.4 Exercising the Refund Branch
+-  5 Two-way Channels
+    -  5.1 Revocable Transactions
+    -  5.2 Using revocable transactions to construct two-way payment channels
+-  6 Everlasting Payment Channels
+    -  6.1 Symmetric commitment states
+    -  6.2 Opening an everlasting payment channel
+    -  6.3 Updating the balance
+    -  6.4 Closing the channel co-operatively
+    -  6.5 Closing the channel unilaterally
+-  7 Re-anchoring everlasting payment channel
+    -  7.1 Dual-funded payment channels
+-  8 Routable payment channels
+    -  8.1 Hashed contracts
+    -  8.2 Hashed Time-locked contracts
+    -  8.3 Embedding an HTLC into a payment channel
+
+## 1. Introduction
 
 This document is an attempt to describe the various kinds of payment channels that are possible in Bitcoin with today's technology. It is a top-to-bottom description of the payment channel and covers:
 
@@ -20,7 +50,7 @@ This document is necessarily a work in progress. The rate of innovation in this 
 
 With that, let's get started!
 
-## A brief overview
+## 2. A brief overview
 
 A payment channel is a sequence of valid Bitcoin transactions which are constructed, signed and exchanged off-chain by two counterparties. The transactions are not broadcast to the Bitcoin network during the operation of the channel, and only when one or both of the parties are ready to close the channel is a single closing transaction broadcast. This allows the balances between the two parties to be updated many times while only resulting in two transactions on the blockchain: one to open the channel and one to close the channel.
 
@@ -43,9 +73,9 @@ The *consensus* property guarantees that the channel remains synchronized betwee
 
 Taken together, these properties ensure the trustless nature of the payment channel and mean that neither party takes on risk by entering into the channel.
 
-## Diagram style
+## 3. Diagram style
 
-#### Transaction graphs
+#### 3.1 Transaction graphs
 
 Bitcoin transactions are collections of Transaction Inputs (TXIs) and Transaction Outputs (TXOs). The simplest Bitcoin transaction consists of a single TXI and a single TXO. The value of the TXO is equal to the value of the TXI (less the transaction fee):
 
@@ -91,7 +121,7 @@ Once a transaction has a valid witness, that witness is valid forever. However, 
 
 ![Invalidated Transaction](./Transaction_Types4.svg)
 
-#### Message Exchange Diagrams
+#### 3.2 Message Exchange Diagrams
 
 Message exchange is depicted using standard ladder diagrams. As well as showing message exchange between the participants in a channel, the ladder diagram can also show one of the participants broadcasting a message to the blockchain:
 
@@ -99,7 +129,7 @@ Message exchange is depicted using standard ladder diagrams. As well as showing 
 
 In practice, when we show Alice broadcasting a 'signed transaction' to Bob within the channel, Alice may only be broadcasting a signature. As long as Bob knows what the transaction format should be, there's no need for Alice to send the full transaction to Bob.
 
-#### Payment Channel Balance Diagrams
+#### 3.3 Payment Channel Balance Diagrams
 
 Payment Channel Balance Diagrams are used to show the balance within a payment channel.
 
@@ -107,7 +137,7 @@ Alice and Bob start with their own funds of Bitcoin:
 
 ![Payment Channel Diagram 1](./Payment_Channel_Diagram1.svg)
 
-Alice funds a new payment channel with 20 BTC. Those funds are hers, but are temporarily locked in the payment channel. The balance of funds within the payment channel can left and right as the parties create and exchange new commitment transactions:
+Alice funds a new payment channel with 20 BTC. Those funds are hers, but are temporarily locked in the payment channel. The balance of funds within the payment channel can move left and right as the parties create and exchange new commitment transactions:
 
 ![Payment Channel Diagram 2](./Payment_Channel_Diagram2.svg)
 
@@ -123,13 +153,13 @@ Finally, Alice closes out the channel, freeing up 5 BTC for herself and 15 BTC f
 
 ![Payment Channel Diagram 5](./Payment_Channel_Diagram5.svg)
 
-## Simple Payment Channel
+## 4. Simple Payment Channel
 
 This is the simplest form of Payment Channel. It is **One-way**, **Simplex** or **Unidirectional**, which means that funds can only flow in one direction from payer to recipient. It is also **Fixed-duration**, which means that the payment channel has to be closed out with a *closing transaction* before a fixed expiry time. If the payer wishes to continue paying the recipient through a channel after this time, she must open a fresh payment channel with a new *anchor transaction*.
 
 As is tradition, Alice is the payer and Bob is the recipient. Alice wishes to pay Bob in increments of 0.01 BTC up to a maximum of 1 BTC.
 
-#### Opening the channel
+#### 4.1 Opening the channel
 
 To open the channel, Alice constructs and signs an anchor transaction and then broadcasts it to the Bitcoin network. The anchor transaction has a single TXO which can be spent either:
 
@@ -170,7 +200,7 @@ Let's check the commitment state properties:
 2. Both parties have an escape route: Alice can escape by broadcasting her refund transaction and claiming 1 BTC (after the channel expiry duration), and Bob can escape by signing and brodcasting CTx1 and claiming his 0.01 BTC.
 3. Both parties are guaranteed their full balance: Alice gets at least 0.99 BTC in both escape paths. Bob can guarantee he'll get 0.01 BTC by broadcasting CTx1 before Alice broadcasts the refund transaction. To make sure this happens, he just needs to broadcast the CTx well before the channel expiry duration.
 
-#### Updating balances in the channel
+#### 4.2 Updating balances in the channel
 
 Let's assume that Bob hasn't closed out the channel and Alice wants to pay a further 0.01 BTC to Bob. She constructs and signs a second commitment transaction CTx2 and sends it to Bob. This second transaction has exactly the same anchor transaction TXO as its TXI, but now produces the following TXOs:
 
@@ -213,7 +243,7 @@ The advantage of this style of payment channel is that it is extremely simple. T
 
 The channel is also almost entirely passive from Bob's point of view. He simply needs to keep hold of the most recent CTx, and then sign and broadcast it when he's ready to close the channel. Simple channels should be very straightforward for wallets and applications to implement.
 
-#### Redeeming a Commitment Transaction
+#### 4.3 Redeeming a Commitment Transaction
 
 To redeem a CTx, Bob broadcasts the transaction with the following unlocking script:
 
@@ -221,7 +251,7 @@ To redeem a CTx, Bob broadcasts the transaction with the following unlocking scr
 <Alice's sig> <Bob's sig> 1
 ```
 
-#### Exercising the Refund Branch
+#### 4.4 Exercising the Refund Branch
 
 In mainline payment channel operation, the Refund Branch should never be exercised since doing so denies Bob his full balance. However, if Bob stops responding, Alice can reclaim the full funds in the channel by constructing and broadcasting a refund transaction after the channel expiry duration. This refund transaction takes the anchor transaction TXO as its TXI. The unlocking script for the transation is:
 
@@ -229,13 +259,13 @@ In mainline payment channel operation, the Refund Branch should never be exercis
 <Alice's sig> 0
 ```
 
-## Two-way Channels
+## 5. Two-way Channels
 
 One of the most obvious limitations of the simple payment channel is that it is one-way. Bob's balance in the channel can only ever increase, and Alice's balance can only ever decrease. This is because every commitment transaction that Alice signs and sends to Bob is valid forever (at least until one of them is broadcast and confirmed). Even if Alice constructs and signs a new transaction with a smaller balance for Bob, Bob will always be able to broadcast the commitment transaction which assigns him the greatest balance. Alice has no way to stop Bob from doing this, and no way to invalidate the old commitment trasactions.
 
 However, there is a trick that allows Alice to ensure that Bob can't use a previous commitment transaction to claim an old balance. This trick uses hash pre-images and timelocks to construct a *revocable* transaction. That's what we'll look at next.
 
-#### Revocable Transactions
+#### 5.1 Revocable Transactions
 
 The trick to creating revocable transactions is to construct one of the TXOs such that it is either encumbered by:
 
@@ -287,7 +317,7 @@ If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by p
 <Alice's sig> <rev> 0
 ```
 
-#### Using revocable transactions to construct two-way payment channels
+#### 5.2 Using revocable transactions to construct two-way payment channels
 
 To create a two-way payment channel, Alice constructs the anchor transaction exactly as before (where the TXO can be spent either by a 2-of-2 multi-sig or by just herself after the channel expiry duration). The difference from the one-way payment channel is in the construction of the commitment transactions: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash provided by Bob.
 
@@ -315,19 +345,19 @@ Finally, Alice wants to increase Bob's balance to 0.02 BTC again. She constructs
 
 Bob can close the channel as soon as the rTXO timeout duration has elapsed by signing and broadcasting the most recent CTx.
 
-## Everlasting Payment Channels
+## 6. Everlasting Payment Channels
 
 So far, we've seen how to construct one-way and two-way payment channels. However, we're still limited by the channel expiry duration, which is determined by the relative locktime on Alice's refund branch. This means that our payment channels can only be open for a certain period of time before the channel has to be closed by Bob.
 
 Next we'll look at how to construct a payment channel that can stay open indefinitely.
 
-#### Symmetric payment channels
+#### 6.1 Symmetric commitment states
 
 Payment channels have two branches. So far, the payment channels we've seen have a *spend* branch for Bob and a *refund* branch for Alice. The refund branch is required to prevent Alice's funds from being stranded (Alice's *escape* clause), and needs to have a relative timelock to prevent Alice from stealing all the funds in the channel (Bob's *safeguard* clause).
 
 With revocable transactions, we have a new method of preventing funds from being stranded inside the transaction. Instead of Alice's branch being a refund transaction, we can create a mirror image of Bob's branch, with the revocable transaction ensuring that the funds don't get stranded. Either party can close out the channel with their most recent commitment transaction, so there's no longer any need for a refund branch.
 
-#### Opening an everlasting payment channel
+#### 6.2 Opening an everlasting payment channel
 
 The anchor transaction for a symmetric payment channel is simply a 2-of-2 multisig transaction. Alice's branch is no longer a refund branch, but a mirror of Bob's spend branch, so the anchor transaction TXO doesn't need a relative locktime refund branch for Alice.
 
@@ -343,7 +373,7 @@ We do need to be a bit careful in opening the payment channel. If Alice just pay
 
 We're now in a commitment state. Either party is able to close the channel and claim their full balance (after the revocation timeout).
 
-#### Updating the balance
+#### 6.3 Updating the balance
 
 If Alice wants to pay Bob in the channel, she needs to transition the channel to a new commitment state with an increased balance for Bob. She does this as follows:
 
@@ -357,7 +387,30 @@ If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above
 
 The TXOs in a symmetric transaction are exactly the same is in the two-way transaction described earlier. The only difference is that the anchor transaction is a simple 2-of-2 multisig, and the CTxs are constructed as a symmetric pair and exchanged using protocol described above.
 
-#### Re-anchofing the channel
+#### 6.4 Closing the channel co-operatively
+
+If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a *closing transaction* as follows:
+
+1. the TXI is the TXO from the anchor transactions
+2. there are two TXOs:
+    - a P2PKH to Alice for her balance (from the current commitment state)
+    - a P2PKH to Bob for his balance (from the current commitment state)
+
+she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:
+
+![Symmetric Channel - Closing the channel co-operatively](./Everlasting_Channel4.svg)
+
+Bob can close the channel co-operatively in exactly the same way, since the channel is entirely symmetrical.
+
+If Alice constructs and sends the closing transaction to close the channel co-operatively but Bob doesn't broadcast it to the network, Alice **must** close the channel unilaterally and should not sign any more commitment transactions. This is because Alice cannot revoke the closing transaction, so Bob might keep hold of it and broadcast it after his balance has decreased.
+
+#### 6.5 Closing the channel unilaterally
+
+In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx after waiting for the revocation timeout duration.
+
+![Symmetric Channel - Closing the channel unilaterally](./Everlasting_Channel5.svg)
+
+## 7 Re-anchoring everlasting payment channel
 
 Since there is no refund transaction in this type of channel, it's possible for the parties to co-operate to add fresh funds to the payment channel or withdraw funds from the payment channel without closing it.
 
@@ -397,30 +450,16 @@ Paying into the payment channel (from one side) and withdrawing from the payment
 
 ![Everlasting Channel - Re-anchoring the channel](./Everlasting_Channel3.svg)
 
-#### Closing the channel - unilateral
+#### 7.1 Dual-funded payment channels
 
-In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx after waiting for the revocation timeout duration.
+So far, all of the payment channels that we've seen have been wholly funded by Alice. We now have a method of opening a payment channel that's funded by both parties:
 
-![Symmetric Channel - Closing the channel unilaterally](./Everlasting_Channel4.svg)
+1. Alice opens the payment channel as normal with her funds.
+2. Alice and Bob co-operate to re-anchor the payment channel using Bob's funds as an additional input.
 
-#### Closing the channel - co-operatively
+![Dual-funded Payment Channel](./Dual_Funded_Channel.svg)
 
-If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a *closing transaction* as follows:
-
-1. the TXI is the TXO from the anchor transactions
-2. there are two TXOs:
-    - a P2PKH to Alice for her balance (from the current commitment state)
-    - a P2PKH to Bob for his balance (from the current commitment state)
-
-she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:
-
-![Symmetric Channel - Closing the channel co-operatively](./Everlasting_Channel5.svg)
-
-Bob can close the channel co-operatively in exactly the same way, since the channel is entirely symmetrical.
-
-If Alice constructs and sends the closing transaction to close the channel co-operatively but Bob doesn't broadcast it to the network, Alice **must** close the channel unilaterally and should not sign any more commitment transactions. This is because Alice cannot revoke the closing transaction, so Bob might keep hold of it and broadcast it after his balance has decreased.
-
-## Routable payment channels
+## 8. Routable payment channels
 
 Payment channels exist between two parties. With the payment channels we've looked at so far, if Alice wants to pay or be paid by a new counterparty, she would need to open a new payment channel with that party. That limits the scalability of payment channels since for every new channel we need to broadcast two transactions to the blockchain. In the worst case (where the parties only want to execute a single payment) this is actually *worse* than simply broadcasting a single transaction to the blockchain.
 
@@ -438,7 +477,7 @@ However, using a trick similar to the revocation hashes used earlier, Alice can 
 
 The next two sections introduce the concepts of hashed contracts and hashed time-locked contracts independently from payment channels. Finally, we'll see how to embed those HTLCs within the everlasting payment channel described above to create a network of routable payment channels.
 
-#### Hashed contracts
+#### 8.1 Hashed contracts
 
 Imagine Alice wants to pay Carol, but Alice only has AliceCoins and Carol only accepts CarolCoins. Luckily, they both know Bob, and Bob is happy to buy and sell in AliceCoins *or* CarolCoins. Alice wants to find a way to pay Bob in AliceCoins and make sure that he pays onwards to Carol.
 
@@ -475,7 +514,7 @@ Bob's unlocking script is simply:
 
 Bob can issue exactly the same contract to Carol, just swapping his public key in the locking script for Carol's.
 
-#### Hashed Time-locked contracts
+#### 8.2 Hashed Time-locked contracts
 
 If you've been reading carefully, you'll notice that there's a problem with the hashed contract protocol. It's exactly the same problem as when Alice opened her first simple payment channel with Bob. The problem is that as soon as Alice broadcast her first transaction at stage (1), if Bob stops responding (either inavertently or maliciously), her funds are stranded in a hashed contract and she can't get them back. Even worse, if Carol stops responding after Bob broadcasts his transaction in step (2), his funds are stranded in a hashed contract *and* Alice's funds are stranded in a hashed contract. Obviously, the longer the chain of hashed contracts, the more risk there is that one of the parties in the chain will disappear and strand everyone's funds.
 
@@ -515,7 +554,7 @@ Alice's refund unlocking script is:
 <Alice's sig> 0
 ```
 
-#### Embedding an HTLC into a payment channel
+#### 8.3 Embedding an HTLC into a payment channel
 
 We can embed the HTLC in a payment channel by adding the HTLC as a TXO to the commitment script. To add a routed payment, we transition from a commitment state without the HTLC to a new commitment state where the commitment transactions contain an HTLC:
 
