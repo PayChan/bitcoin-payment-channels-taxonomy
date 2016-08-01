@@ -5,7 +5,7 @@
 This document is an attempt to describe the various kinds of payment channels that are possible in Bitcoin with today's technology. It is a top-to-bottom description of the payment channel and covers:
 
 - the operation of the channel including the opening (*anchor*) transaction, the commitment states and the channel closing conditions
-- the order and exchange of transactions for commitment state changes
+- the order and exchange of messages for commitment state changes
 - the full locking (*scriptPubKey*) and unlocking (*scriptSig*) scripts for all transactions
 
 The reader is assumed to have a knowledge of the format of bitcoin transactions and transaction outputs, the concept of pay-to-[witness-]script-hash and the workings of opcodes and the Script language. No prior knowledge of payment channels is assumed.
@@ -45,6 +45,8 @@ Taken together, these properties ensure the trustless nature of the payment chan
 
 ## Diagram style
 
+#### Transaction graphs
+
 Bitcoin transactions are collections of Transaction Inputs (TXIs) and Transaction Outputs (TXOs). The simplest Bitcoin transaction consists of a single TXI and a single TXO. The value of the TXO is equal to the value of the TXI (less the transaction fee):
 
 ![Simple Transaction](./Basic_Transaction1.svg)
@@ -67,7 +69,7 @@ Finally, a single TXO can be spent in many ways. We can illustrate that with bra
 
 This is slightly arbitrary, since the TXO could be spent in an infinite number of ways. However, it is instructive to see the different ways that we're expecting the TXO to be spent. In the following payment channels we'll be constructing many commitment transaction, each overriding the previous commitment transactions, so this notation will be useful.
 
-#### Transaction types
+##### Transaction types
 
 If a transaction has been broadcast to the Bitcoin network, we'll colour it green:
 
@@ -89,9 +91,41 @@ Once a transaction has a valid witness, that witness is valid forever. However, 
 
 ![Invalidated Transaction](./Transaction_Types4.svg)
 
+#### Message Exchange Diagrams
+
+Message exchange is depicted using standard ladder diagrams. As well as showing message exchange between the participants in a channel, the ladder diagram can also show one of the participants broadcasting a message to the blockchain:
+
+![Ladder Diagram](./Ladder_Diagram.svg)
+
+In practice, when we show Alice broadcasting a 'signed transaction' to Bob within the channel, Alice may only be broadcasting a signature. As long as Bob knows what the transaction format should be, there's no need for Alice to send the full transaction to Bob.
+
+#### Payment Channel Balance Diagrams
+
+Payment Channel Balance Diagrams are used to show the balance within a payment channel.
+
+Alice and Bob start with their own funds of Bitcoin:
+
+![Payment Channel Diagram 1](./Payment_Channel_Diagram1.svg)
+
+Alice funds a new payment channel with 20 BTC. Those funds are hers, but are temporarily locked in the payment channel. The balance of funds within the payment channel can left and right as the parties create and exchange new commitment transactions:
+
+![Payment Channel Diagram 2](./Payment_Channel_Diagram2.svg)
+
+Alice then pays 10 BTC to Bob within the channel. The channel now contains a balance of 10 BTC for Alice and 10 BTC for Bob:
+
+![Payment Channel Diagram 3](./Payment_Channel_Diagram3.svg)
+
+Alice continues to pay Bob in the channel until her balance is 5 BTC and his balance is 15 BTC:
+
+![Payment Channel Diagram 4](./Payment_Channel_Diagram4.svg)
+
+Finally, Alice closes out the channel, freeing up 5 BTC for herself and 15 BTC for Bob:
+
+![Payment Channel Diagram 5](./Payment_Channel_Diagram5.svg)
+
 ## Simple Payment Channel
 
-This is the simplest form of Payment Channel. It is **One-way**, **Simplex** or **Unidirectional**, which means that funds can only flow in one direction from payer to recipient. It is also **Fixed-duration**, which means that the payment channel has to be closed out with a *closing transaction* after a fixed time period. If the payer wishes to continue paying the recipient through a channel after this time, she must open a fresh payment channel with a new *anchor transaction*.
+This is the simplest form of Payment Channel. It is **One-way**, **Simplex** or **Unidirectional**, which means that funds can only flow in one direction from payer to recipient. It is also **Fixed-duration**, which means that the payment channel has to be closed out with a *closing transaction* before a fixed expiry time. If the payer wishes to continue paying the recipient through a channel after this time, she must open a fresh payment channel with a new *anchor transaction*.
 
 As is tradition, Alice is the payer and Bob is the recipient. Alice wishes to pay Bob in increments of 0.01 BTC up to a maximum of 1 BTC.
 
@@ -164,6 +198,16 @@ This continues until one of the following happens:
 1. Bob wishes to close out the channel, and so signs and broadcasts the most recent CTx.
 2. the funds in the channel are exhausted and the most recent CTx sends 1 BTC to Bob and 0 to Alice. At this point, Bob can just sign and broadcast that CTx and collect the 1 BTC.
 3. The payment channel expiry duration is reached. At this point Alice can reclaim all of the funds in the channel. Bob should never let this happen, so should sign and broadcast the most recent CTx well before the expiry duration.
+
+Here's a diagram of Bob closing the channel after 4 commitment transactions:
+
+![Simple Channel - ladder diagram](./Simple_Channel5.svg)
+
+In this example:
+
+1. Alice broadcasts the Anchor transaction to the network
+2. Alice then constructs and signs a sequence of four CTxs, which she sends to Bob
+3. Bob closes the channel by signing and broadcasting the most recent transaction CTx4
 
 The advantage of this style of payment channel is that it is extremely simple. The anchor TXO locking script is essentially either a 2-of-2 multisig in the spend branch, or a P2PKH with relative timelock in the refund branch. Commitment transitions are achieved simply by Alice constructing and signing new CTXs and sending them to Bob.
 
@@ -289,11 +333,11 @@ The anchor transaction for a symmetric payment channel is simply a 2-of-2 multis
 
 We do need to be a bit careful in opening the payment channel. If Alice just pays into a multisig address, then her funds could be stranded if Bob disappears. Therefore, the sequence for opening a symmetric transaction is as follows:
 
-- Alice constructs an anchor transaction to a 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it.
-- Alice sends the txid (the hash of the transaction) to Bob, along with her first revocation hash h(revA1).
-- Bob constructs his first commitment transaction CTxB1 using h(revA1) and sends it to Alice, along with his first revocation hash h(revB1).
-- Alice constructs her first commitment transaction CTxA1 using h(revB1) and sends it to Bob.
-- Alice signs and broadcasts the anchor transaction.
+1. Alice constructs an anchor transaction to a 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it.
+2. Alice sends the txid (the hash of the transaction) to Bob, along with her first revocation hash h(revA1).
+3. Bob constructs his first commitment transaction CTxB1 using h(revA1) and sends it to Alice, along with his first revocation hash h(revB1).
+4. Alice constructs her first commitment transaction CTxA1 using h(revB1) and sends it to Bob.
+5. Alice signs and broadcasts the anchor transaction.
 
 ![Everlasting Channel - Commitment State 1](./Everlasting_Channel1.svg)
 
@@ -303,10 +347,9 @@ We're now in a commitment state. Either party is able to close the channel and c
 
 If Alice wants to pay Bob in the channel, she needs to transition the channel to a new commitment state with an increased balance for Bob. She does this as follows:
 
-- Alice sends a new revocation hash to Bob h(revA2), together with the new balances
-- Bob constructs a new commitment transaction CTxB2 using the new balances and h(revA2) and sends it to Alice, along with a new revocation hash h(revB2)
-- Alice constructs a new commitment transaction CTxA2 using the new balances and h(revB2) and sends it to Bob, along with revA1, which revokes CTxB1.
-- Bob sends revB1 to Alice, which revokes CtxA1.
+1. Alice constructs a new commitment transaction CTxA2 using the new balances and h(revB1) and sends it to Bob, along with a new revocation hash h(revA2).
+2. Bob constructs a new commitment transaction CTxB2 using the new balances and h(revA2) and sends it to Alice
+3. Alice sends revA1 to Bob, which revokes CtxB1.
 
 ![Everlasting Channel - Commitment State 2](./Everlasting_Channel2.svg)
 
@@ -314,24 +357,43 @@ If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above
 
 The TXOs in a symmetric transaction are exactly the same is in the two-way transaction described earlier. The only difference is that the anchor transaction is a simple 2-of-2 multisig, and the CTxs are constructed as a symmetric pair and exchanged using protocol described above.
 
-#### Recharging the channel
+#### Re-anchofing the channel
 
-Since there is no refund transaction in this type of channel, it's possible for either party to add fresh funds to the payment channel. If one party runs out of funds in the channel, they may want to recharge the payment channel with additional funds (one blockchain transaction) rather than close the channel and open a new channel (two transactions).
+Since there is no refund transaction in this type of channel, it's possible for the parties to co-operate to add fresh funds to the payment channel or withdraw funds from the payment channel without closing it.
+
+If one party runs out of funds in the channel, they may want to recharge the payment channel with additional funds (one blockchain transaction) rather than close the channel and open a new channel (two transactions).
 
 Let's assume Alice wants to add funds to the channel. The process is as follows:
 
-- Alice constructs and signs a second anchor transaction ATx2 to the 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it. The TXIs for ATx2 are the TXO from ATx1 and a new TXI from Alice for the recharge amount.
-- Alice sends the txid (the hash of the transaction) to Bob, along with a new revocation hash h(revA2-1).
-- Bob constructs a new commitment transaction CTxB2-1 as follows:
+1. Alice constructs and signs a second anchor transaction ATx2 to the 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it. The TXIs for ATx2 are the TXO from ATx1 and a new TXI from Alice for the recharge amount.
+2. Alice sends the txid (the hash of the transaction) to Bob, along with a new revocation hash h(revA2-1).
+3. Bob constructs a new commitment transaction CTxB2-1 as follows:
     - The TXI is the TXO from ATx2
     - Bob's balance is the same is it was in the previous CTx
     - Alice's balance is her balance from the previous CTx plus the additional funds she's just paid into the channel with ATx2
     - the revocation hash is h(revA2-1)
-- Bob sends CTxB2-1 to Alice, along with a new revocation hash h(revB2-1).
-- Alice constructs her first commitment transaction CTxA2-1. This is the mirror of Bob's commitment transaction CTxB2-1.
-- Alice broadcasts ATx2 to the Bitcoin network
-- Alice sends the revocation pre-image from the previous CTxA to Bob.
-- Bob sends the revocation pre-image from the previous CTxB to Alice.
+4. Bob sends CTxB2-1 to Alice, along with a new revocation hash h(revB2-1).
+5. Alice constructs her first commitment transaction CTxA2-1. This is the mirror of Bob's commitment transaction CTxB2-1.
+6. Alice broadcasts ATx2 to the Bitcoin network
+7. Alice sends the revocation pre-image from the previous CTxA to Bob.
+8. Bob sends the revocation pre-image from the previous CTxB to Alice.
+
+Withdrawals can be made in a similar way. If Alice wants to withdraw funds from the channel:
+
+1. Alice constructs and signs a second anchor transaction ATx2, but she doesn't broadcast or share it. The TXI for ATx2 is the TXO from ATx1 and a new TXI from Alice for the recharge amount. There are two TXOs: one which pays into the 2-of-2 multisig (for the channel), and one which pays to Alice.
+2. Alice sends the txid (the hash of the transaction) to Bob, along with a new revocation hash h(revA2-1).
+3. Bob constructs a new commitment transaction CTxB2-1 as follows:
+    - The TXI is the first TXO from ATx2
+    - Bob's balance is the same is it was in the previous CTx
+    - Alice's balance is her balance from the previous CTx minus the funds she's just withdrawn from ATx1
+    - the revocation hash is h(revA2-1)
+4. Bob sends CTxB2-1 to Alice, along with a new revocation hash h(revB2-1).
+5. Alice constructs her first commitment transaction CTxA2-1. This is the mirror of Bob's commitment transaction CTxB2-1.
+6. Alice broadcasts ATx2 to the Bitcoin network
+7. Alice sends the revocation pre-image from the previous CTxA to Bob.
+8. Bob sends the revocation pre-image from the previous CTxB to Alice.
+
+Paying into the payment channel (from one side) and withdrawing from the payment channel (to the other side) is a quick way to rebalance a payment channel that has become unbalanced.
 
 ![Everlasting Channel - Re-anchoring the channel](./Everlasting_Channel3.svg)
 
@@ -345,18 +407,18 @@ In any commitment state, both parties hold a valid CTx. Either party can close o
 
 If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a *closing transaction* as follows:
 
-- the TXI is the TXO from the anchor transactions
-- there are two TXOs:
-    - a P2PKH to Alice for her balance (from the most recent commitment state)
-    - a P2PKH to Bob for his balance (from the most recent commitment state)
+1. the TXI is the TXO from the anchor transactions
+2. there are two TXOs:
+    - a P2PKH to Alice for her balance (from the current commitment state)
+    - a P2PKH to Bob for his balance (from the current commitment state)
 
-she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network.
-
-Bob can close the channel co-operatively in exactly the same way, since the channel is entirely symmetrical:
+she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:
 
 ![Symmetric Channel - Closing the channel co-operatively](./Everlasting_Channel5.svg)
 
-If Alice constructs and sends the closing transaction to close the channel co-operatively, but Bob doesn't broadcast it to the network, Alice **must** close the channel unilaterally and should not sign any more commitment transactions. If she did so and continued to use the channel, then Bob would always have the option to use the closing transaction when his balance had decreased below the closing transaction balance.
+Bob can close the channel co-operatively in exactly the same way, since the channel is entirely symmetrical.
+
+If Alice constructs and sends the closing transaction to close the channel co-operatively but Bob doesn't broadcast it to the network, Alice **must** close the channel unilaterally and should not sign any more commitment transactions. This is because Alice cannot revoke the closing transaction, so Bob might keep hold of it and broadcast it after his balance has decreased.
 
 ## Routable payment channels
 
@@ -368,7 +430,7 @@ However, if we could somehow link payment channels together and route payments t
 - Bob and Carol have an open payment channel
 - Alice does not have a payment channel with Carol
 
-If Alice wants to pay Carol, she would route a payment through Alice <---> Bob <---> Carol instead of having to open a new channel to Carol.
+If Alice wants to pay Carol, she would route a payment through Alice ---> Bob ---> Carol instead of having to open a new channel to Carol.
 
 The naive way to do this would be for Alice to pay Bob and then ask Bob to pay Carol. That requires Alice to trust Bob with her payment and would allow a malicious Bob to steal Alice's money instead of delivering it to Carol.
 
@@ -382,13 +444,13 @@ Imagine Alice wants to pay Carol, but Alice only has AliceCoins and Carol only a
 
 Alice doesn't trust Bob enough to pay him and know that he'll pay onwards to Carol, and Bob doesn't trust Alice enough to pay Carol and know that he'll be able to collect payment from Alice.
 
-Alice needs a contract that says "*I promise to pay Bob if he proves he's paying Alice*". Simultaneously, Bob needs a contract that says "*I promise to pay Carol if Alice proves she'll pay me*".
+Alice needs a contract that says "*I promise to pay Bob if he proves he's paying Alice*". Simultaneously, Bob needs a contract that says "*I promise to pay Carol if Alice proves she's paying me*".
 
 We can construct those contracts using a very similar trick to the revocation secrets used in the revocable transactions above. Here's how it works:
 
-1. Alice constructs a payment to Bob encumbered with a secret contract hash *h(con)* and broadcasts it to the network
-2. Bob constructs a payment to Carol *encumbered with the same secret contract hash h(con)* and broadcasts it to the network
-3. Alice reveals the pre-image of the contract hash *con* to Carol through a secure channel
+1. Carol generates a contract secret *con* and sends the hash of that secret *h(con)* to Alice through a secure channel.
+2. Alice constructs a payment to Bob encumbered with *h(con)* and broadcasts it to the network
+3. Bob constructs a payment to Carol *encumbered with the same secret contract hash h(con)* and broadcasts it to the network
 4. Carol redeems Bob's payment by revealing *con*
 5. Bob can redeem Alice's payment by revealing *con*
 
@@ -417,11 +479,11 @@ Bob can issue exactly the same contract to Carol, just swapping his public key i
 
 If you've been reading carefully, you'll notice that there's a problem with the hashed contract protocol. It's exactly the same problem as when Alice opened her first simple payment channel with Bob. The problem is that as soon as Alice broadcast her first transaction at stage (1), if Bob stops responding (either inavertently or maliciously), her funds are stranded in a hashed contract and she can't get them back. Even worse, if Carol stops responding after Bob broadcasts his transaction in step (2), his funds are stranded in a hashed contract *and* Alice's funds are stranded in a hashed contract. Obviously, the longer the chain of hashed contracts, the more risk there is that one of the parties in the chain will disappear and strand everyone's funds.
 
-The solution to this is basically the same as Alice's refund branch in the simple payment channel. Each hashed contract contains its own refund branch that means the contract payer can reclaim the funds if the recipient doesn't redeem the contract using the contract pre-image within a certain timelock duration. A hashed contract with a timelocked refund branch is called a Hashed Time-locked Contract or HTLC.
+The solution to this is basically the same as the refund branch in the simple payment channel. Each hashed contract contains its own refund branch that means the contract payer can reclaim the funds if the recipient doesn't redeem the contract using the *con* within a certain timelock duration. A hashed contract with a timelocked refund branch is called a Hashed Time-locked Contract or HTLC.
 
 There are a couple of subtleties here:
 
-- because there's a chain of hashed contracts, each timelock should be slightly lower than the timelock in the previous contract. Bob doesn't want to end up in a situation where Carol has redeemed his HTLC, but Alice's HTLC to him has timed out and Alice has claimed it back. For that reason, each party in the HTLC increases the contract timelock in his onward contract so he has plenty of time to redeem his inward contract. Alice's contract to Bob might have a one day timelock, Bob's contract to Carol has a two day timelock and so on.
+- because there's a chain of hashed contracts, each timelock should be slightly lower than the timelock in the previous contract. Bob doesn't want to end up in a situation where Carol has redeemed his HTLC, but Alice's HTLC to him has timed out and Alice has claimed it back. For that reason, each party in the HTLC decreases the contract timelock in his onward contract so he has plenty of time to redeem his inward contract. Alice's contract to Bob would have a four day timelock, Bob's contract to Carol would have a three day timelock, Carol's contract to David would have a two day timelock, and so on.
 - The timelocks in these contracts are *absolute* timelocks rather than *relative* timelocks. That's because the timelock should be relative to the timelock in the previous HTLC in the chain, not relative to when this HTLC happens to hit the blockchain.
 
 The chain of HTLCs now looks like this:
@@ -455,11 +517,13 @@ Alice's refund unlocking script is:
 
 #### Embedding an HTLC into a payment channel
 
-We can now embed the HTLC in a payment channel by adding the HTLC as a TXO to the commitment script. To add a routed payment, we transition from a commitment state without the HTLC to a new commitment state where the commitment transactions contain an HTLC:
+We can embed the HTLC in a payment channel by adding the HTLC as a TXO to the commitment script. To add a routed payment, we transition from a commitment state without the HTLC to a new commitment state where the commitment transactions contain an HTLC:
 
+![Lightning Channel](./Lightning_Channel1.svg)
 
+There's one very small detail that needs to change in the HTLC before we can do that. The parties in the channel need to be able to revoke HTLCs in previous commitment states, just like they're able to revoke the rTXOs. That's so that when they revoke a previous transaction state, all the TXOs from it are revoked.
 
-There's one very small detail that needs to change in the HTLC before we can do that. The parties in the channel need to be able to revoke HTLCs in previous commitment states, just like they're able to revoke the rTXOs. The HTLC is redeemable in three ways:
+The HTLC is redeemable in three ways:
 
 - by the recipient by using the contract pre-image
 - by the sender if the HTLC timelock has expired

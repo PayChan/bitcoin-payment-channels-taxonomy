@@ -2,12 +2,12 @@
 
 The concept of a payment channel in Bitcoin has been around for several years, but recent changes to the protocol (**OP_CHECKLOCKTIMEVERIFY**, **OP_CHECKSEQUENCEVERIFY**, Segregated Witness) have made much more powerful constructions of payment channels possible.
 
-As far as I'm aware, there haven't been any resources that describe all the different varieties of payment channels possible today. Much of the available material is now obsolete and contains overly complex constructions to achieve what is possible today with far more elegant solutions.
+As far as I'm aware, there aren't any resources that describe the different varieties of payment channels possible today. Much of the available material is now obsolete and contains overly complex constructions to achieve what is possible today with far more elegant solutions.
 
 This document is an attempt to describe the various kinds of payment channels that are possible in Bitcoin. It covers:
 
 - the operation of the channel including the opening (*anchor*) transaction, the commitment states and the channel closing conditions
-- the order and exchange of transactions for commitment state changes
+- the order and exchange of messages for commitment state changes
 - the full locking (*scriptPubKey*) and unlocking (*scriptSig*) scripts for all tranactions.
 
 The reader is assumed to have a knowledge of the format of bitcoin transactions and transaction outputs, the concept of pay-to-[witness-]script-hash and the workings of opcodes and the Script language. No prior knowledge of payment channels is assumed.
