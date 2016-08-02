@@ -5,7 +5,7 @@
 -  1 Introduction
 -  2 A brief overview
 -  3 Diagram style
-    -  3.1 Transaction graphs
+    -  3.1 Transaction Graphs
         - Transaction types
     -  3.2 Message Exchange Diagrams
     -  3.3 Payment Channel Balance Diagrams
@@ -21,10 +21,10 @@
     -  6.1 Symmetric commitment states
     -  6.2 Opening an everlasting payment channel
     -  6.3 Updating the balance
-    -  6.4 Closing the channel co-operatively
-    -  6.5 Closing the channel unilaterally
--  7 Re-anchoring everlasting payment channel
-    -  7.1 Dual-funded payment channels
+    -  6.4 Re-anchoring the channel
+    -  6.5 Closing the channel co-operatively
+    -  6.6 Closing the channel unilaterally
+-  7 Dual-funded payment channels
 -  8 Routable payment channels
     -  8.1 Hashed contracts
     -  8.2 Hashed Time-locked contracts
@@ -75,7 +75,7 @@ Taken together, these properties ensure the trustless nature of the payment chan
 
 ## 3. Diagram style
 
-#### 3.1 Transaction graphs
+#### 3.1 Transaction Graphs
 
 Bitcoin transactions are collections of Transaction Inputs (TXIs) and Transaction Outputs (TXOs). The simplest Bitcoin transaction consists of a single TXI and a single TXO. The value of the TXO is equal to the value of the TXI (less the transaction fee):
 
@@ -387,30 +387,7 @@ If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above
 
 The TXOs in a symmetric transaction are exactly the same is in the two-way transaction described earlier. The only difference is that the anchor transaction is a simple 2-of-2 multisig, and the CTxs are constructed as a symmetric pair and exchanged using protocol described above.
 
-#### 6.4 Closing the channel co-operatively
-
-If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a *closing transaction* as follows:
-
-1. the TXI is the TXO from the anchor transactions
-2. there are two TXOs:
-    - a P2PKH to Alice for her balance (from the current commitment state)
-    - a P2PKH to Bob for his balance (from the current commitment state)
-
-she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:
-
-![Symmetric Channel - Closing the channel co-operatively](./Everlasting_Channel4.svg)
-
-Bob can close the channel co-operatively in exactly the same way, since the channel is entirely symmetrical.
-
-If Alice constructs and sends the closing transaction to close the channel co-operatively but Bob doesn't broadcast it to the network, Alice **must** close the channel unilaterally and should not sign any more commitment transactions. This is because Alice cannot revoke the closing transaction, so Bob might keep hold of it and broadcast it after his balance has decreased.
-
-#### 6.5 Closing the channel unilaterally
-
-In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx after waiting for the revocation timeout duration.
-
-![Symmetric Channel - Closing the channel unilaterally](./Everlasting_Channel5.svg)
-
-## 7 Re-anchoring everlasting payment channel
+#### 6.4 Re-anchoring the channel
 
 Since there is no refund transaction in this type of channel, it's possible for the parties to co-operate to add fresh funds to the payment channel or withdraw funds from the payment channel without closing it.
 
@@ -450,7 +427,30 @@ Paying into the payment channel (from one side) and withdrawing from the payment
 
 ![Everlasting Channel - Re-anchoring the channel](./Everlasting_Channel3.svg)
 
-#### 7.1 Dual-funded payment channels
+#### 6.5 Closing the channel co-operatively
+
+If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a *closing transaction* as follows:
+
+1. the TXI is the TXO from the anchor transactions
+2. there are two TXOs:
+    - a P2PKH to Alice for her balance (from the current commitment state)
+    - a P2PKH to Bob for his balance (from the current commitment state)
+
+she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:
+
+![Symmetric Channel - Closing the channel co-operatively](./Everlasting_Channel4.svg)
+
+Bob can close the channel co-operatively in exactly the same way, since the channel is entirely symmetrical.
+
+If Alice constructs and sends the closing transaction to close the channel co-operatively but Bob doesn't broadcast it to the network, Alice **must** close the channel unilaterally and should not sign any more commitment transactions. This is because Alice cannot revoke the closing transaction, so Bob might keep hold of it and broadcast it after his balance has decreased.
+
+#### 6.6 Closing the channel unilaterally
+
+In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx after waiting for the revocation timeout duration.
+
+![Symmetric Channel - Closing the channel unilaterally](./Everlasting_Channel5.svg)
+
+## 7. Dual-funded payment channels
 
 So far, all of the payment channels that we've seen have been wholly funded by Alice. We now have a method of opening a payment channel that's funded by both parties:
 
