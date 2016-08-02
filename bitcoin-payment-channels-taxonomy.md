@@ -16,6 +16,7 @@
     -  4.4 Exercising the Refund Branch
 -  5 Two-way Channels
     -  5.1 Revocable Transactions
+    -  5.3 Using sha-trees for efficient construcion and storage of revocation secrets
     -  5.2 Using revocable transactions to construct two-way payment channels
 -  6 Everlasting Payment Channels
     -  6.1 Symmetric commitment states
@@ -316,34 +317,39 @@ If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by p
 ```
 <Alice's sig> <rev> 0
 ```
+#### 5.2 Using sha-trees for efficient generation and storage of revocation secrets.
 
-#### 5.2 Using revocable transactions to construct two-way payment channels
+Instead of generating a new random 256-bit integer for each revocation secret, we use a sha-tree to construct an efficient binary tree of revocation secret seeds. The method for constructing and storing the sha-tree is described in https://github.com/rustyrussell/ccan/blob/master/ccan/crypto/shachain/design.txt.
 
-To create a two-way payment channel, Alice constructs the anchor transaction exactly as before (where the TXO can be spent either by a 2-of-2 multi-sig or by just herself after the channel expiry duration). The difference from the one-way payment channel is in the construction of the commitment transactions: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash provided by Bob.
+
+
+#### 5.3 Using revocable transactions to construct two-way payment channels
+
+To create a two-way payment channel, Bob first needs to provide two revocation hashes *h(rev1)* and *h(rev2)* to Alice. Alice then constructs the anchor transaction exactly as before (where the TXO can be spent either by a 2-of-2 multi-sig or by just herself after the channel expiry duration). The difference from the one-way payment channel is in the construction of the commitment transactions: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash *h(rev1)* provided by Bob.
 
 Commitment state 1 is as follows:
 
 ![Two-way Channel - First commitment](./two-way-channel1.svg)
 
-If Alice wants to increase Bob's balance in the channel to 0.02 BTC, she continues in exactly the same way as for the one-way payment channel. She constructs a new commitment transaction which sends 0.98 BTC to herself and 0.02 BTC to Bob. Again, the only difference is that the TXO for Bob in the CTx is an rTXO.
+If Alice wants to increase Bob's balance in the channel to 0.02 BTC, she constructs a new commitment transaction which sends 0.98 BTC to herself and 0.02 BTC to Bob. The only difference from a simple channel is that the TXO for Bob in the CTx is an rTXO. Alice uses the second revocation hash *h(rev2)* to construct CTx2.
+
+To acknowledge and commit the new CTx, Bob sends the revocation secret for CTx1 *rev1* along with a new revocation hash *h(rev3) so Alice can construct CTx3.
 
 Commitment state 2 is:
 
 ![Two-way Channel - Second commitment](./two-way-channel2.svg)
 
-You'll notice that the rTXO in commitment transaction uses the same revocation secret as for CTx1. That's because Alice only needs to revoke an old CTx if her balance in the new CTx has increased. She doesn't need to revoke CTx1 (which gives her 0.99 BTC) since she'd be perfectly happy for Bob to broadcast CTx1 instead of CTx2 (which gives her 0.98 BTC).
+Strictly speaking, Alice could use re-use the previous revocation hash to construct CTx2. That's because Alice only needs Bob to revoke an old CTx if her balance in the new CTx has increased. She doesn't need to revoke CTx1 (which gives her 0.99 BTC) since she'd be perfectly happy for Bob to broadcast CTx1 instead of CTx2 (which gives her 0.98 BTC).
 
-This is an important point which will be relied upon later. Revocation secrets only need to be revealed when the balance in a rTXO decreases. If the amount encumbered with the revocation secret increases from one commitment state to the next, the same revocation secret can be used.
+However, we're not going to use that optimization. It makes things simpler just to use a new revocation secret for each CTx. The sha-tree described in section 5.2 means that additional revocation secrets are cheap to generate and store, so the slight additional overhead in using unnecessary revocation hashes is acceptable for keeping the protocol simple.
 
-If Bob now wants to pay Alice 0.01 BTC and reduce his balance back to 0.01 BTC, he provides her with a new revocation hash (*hash(rev2)*), which she uses to construct CTx3. Once she's sent CTx3 to Bob, Bob sends her rev1, which revokes CTx1 and CTx2:
+Bob now wants to pay Alice 0.01 BTC and reduce his balance in the channel back to 0.01 BTC. Bob sends a request to Alice to create a new CTx with the new channel balances. Alice then constructs and signs CTx3 using *h(rev3)* and sends it to Bob. As before, Bob revokes the previous transaction and provides Alice with a new revocation hash:
 
 ![Two-way Channel - Third commitment](./two-way-channel3.svg)
 
-Finally, Alice wants to increase Bob's balance to 0.02 BTC again. She constructs CTx4 using h(rev2):
-
-![Two-way Channel - Fourth commitment](./two-way-channel4.svg)
-
 Bob can close the channel as soon as the rTXO timeout duration has elapsed by signing and broadcasting the most recent CTx.
+
+Bob needs to make sure that he is able to close the most recent CTx well before Alice is able to broadcast RTx. Since the CTxs are encumbered by an rTXO timeout, in effect Bob needs to stop revoking old CTxs well before the channel expiry time.
 
 ## 6. Everlasting Payment Channels
 
