@@ -224,11 +224,23 @@ Alice can continue paying Bob through the payment channel in this fashion. Each 
 
 ![Simple Channel - multiple commitments](./Simple_Channel4.svg)
 
-This continues until one of the following happens:
+There are two ways to close the channel:
 
-1. Bob wishes to close out the channel, and so signs and broadcasts the most recent CTx.
-2. the funds in the channel are exhausted and the most recent CTx sends 1 BTC to Bob and 0 to Alice. At this point, Bob can just sign and broadcast that CTx and collect the 1 BTC.
-3. The payment channel expiry duration is reached. At this point Alice can reclaim all of the funds in the channel. Bob should never let this happen, so should sign and broadcast the most recent CTx well before the expiry duration.
+1. Bob signs and broadcasts a CTx.
+2. The channel expires and Alice broadcasts the RTx.
+
+The advantage of this style of payment channel is that it is extremely simple. The anchor TXO locking script is essentially either a 2-of-2 multisig in the spend branch, or a P2PKH with relative timelock in the refund branch. Commitment transitions are achieved simply by Alice constructing and signing new CTXs and sending them to Bob.
+
+The channel is also almost entirely passive from Bob's point of view. He simply needs to keep hold of the most recent CTx, and then sign and broadcast it when he's ready to close the channel. Simple channels should be very straightforward for wallets and applications to implement.
+
+#### 4.3 Closing the channel by redeeming a commitment transaction
+
+Bob could sign and broadcast his latest CTx to close the channel for a couple of reasons:
+
+1. Alice has paid exhausted her funds in the channel (ie the most recent CTx sends 1 BTC to Bob and 0 to Alice).
+2. Bob simply wishes to close out the channel and collect his balance from the most recent CTx.
+
+In either case, he should make sure he signs and broadcasts the most recent CTx well before Alice does, to make sure the RTx doesn't steal the TXIs for his CTx.
 
 Here's a diagram of Bob closing the channel after 4 commitment transactions:
 
@@ -240,21 +252,23 @@ In this example:
 2. Alice then constructs and signs a sequence of four CTxs, which she sends to Bob
 3. Bob closes the channel by signing and broadcasting the most recent transaction CTx4
 
-The advantage of this style of payment channel is that it is extremely simple. The anchor TXO locking script is essentially either a 2-of-2 multisig in the spend branch, or a P2PKH with relative timelock in the refund branch. Commitment transitions are achieved simply by Alice constructing and signing new CTXs and sending them to Bob.
-
-The channel is also almost entirely passive from Bob's point of view. He simply needs to keep hold of the most recent CTx, and then sign and broadcast it when he's ready to close the channel. Simple channels should be very straightforward for wallets and applications to implement.
-
-#### 4.3 Redeeming a Commitment Transaction
-
-To redeem a CTx, Bob broadcasts the transaction with the following unlocking script:
+Bob broadcasts CTx4 transaction, which has the following unlocking script:
 
 ```
 <Alice's sig> <Bob's sig> 1
 ```
 
-#### 4.4 Exercising the Refund Branch
+#### 4.4 Closing the channel by exercising the refund branch
 
-In mainline payment channel operation, the Refund Branch should never be exercised since doing so denies Bob his full balance. However, if Bob stops responding, Alice can reclaim the full funds in the channel by constructing and broadcasting a refund transaction after the channel expiry duration. This refund transaction takes the anchor transaction TXO as its TXI. The unlocking script for the transation is:
+Bob should never let the channel expiry time pass without broadcasting a CTx. Once the channel is expired, Alice is able to broadcast the RTx and reclaim all the funds in the channel.
+
+However, if Bob stops responding, Alice needs a way to reclaim the funds from the channel. She does this by constructing and broadcasting a refund transaction.
+
+Here's a diagram of Bob disappearing after 2 CTxs, and Alice reclaiming the funds with an RTx:
+
+![Simple Channel - ladder diagram 2](./Simple_Channel6.svg)
+
+The refund transaction takes the anchor transaction TXO as its TXI and has the following unlocking script:
 
 ```
 <Alice's sig> 0
@@ -291,7 +305,7 @@ We're going to use rTXOs *a lot* for more advanced channels, so it makes sense t
 
 ![Revocable Transaction - Notation](./Revocable_Transaction4.svg)
 
-Conceptually, the combined up/down facing arrow indicates that the rTXO can be reversed.
+Conceptually, the combined up/down facing chevron indicates that the rTXO can be revoked.
 
 The locking script for a revocable transaction is:
 
@@ -319,33 +333,66 @@ If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by p
 ```
 #### 5.2 Using sha-trees for efficient generation and storage of revocation secrets.
 
-Instead of generating a new random 256-bit integer for each revocation secret, we use a sha-tree to construct an efficient binary tree of revocation secret seeds. The method for constructing and storing the sha-tree is described in https://github.com/rustyrussell/ccan/blob/master/ccan/crypto/shachain/design.txt.
+The revocation hash is the 160 bit image of hashing a secret revocation pre-image first with SHA256 and then with RIPEMD-160. Bob needs to make sure that Alice can't guess the pre-images for the revocation hashes. If she could do that, then she'd be able to steal the funds from the rTXO before Bob had revoked it.
 
+The simplest way for Bob to create revocation secrets would be to use a pseudo-random number generator every time he needed to provide Alice with a new revocation hash. However, we're going to use revocation secrets in channels where we expect a large number of CTxs. Alice needs to store all the revocation secrets to ensure Bob doesn't broadcast an old revoked transaction, and the space required for Alice to store those pre-images would grow linearly with the number of commitment transactions in the channel.
 
+Much better is if Bob uses a seed to generate the revocation secrets, and then shares information with Alice that would allow her to generate all the revocation pre-images that have been revealed so far.
+
+One way to do this would be to use a sha-chain. Take a random seen and run SHA256 on it 1,000,000 times. Use the 1,000,000th hash as the first revocation pre-image, the 999,999th hash as the second pre-image and so on. Alice only needs to store the most recent pre-image, since she can derive all the other pre-images by hashing it repeatedly. The downside to this is that Bob needs to hash a value 1,000,000 times when the channel opens, and then either:
+
+- store all 1,000,000 values (which is what we're trying to avoid!); or
+- hash the same seed 999,999 times for the next revocation pre-image, and then hash the seed 999,998 times for the next, and so on.
+
+That's slow and computationally expensive.
+
+Better is to use a seed to construct an efficient binary tree of revocation secret. The method for constructing and storing the sha-tree is described in https://github.com/rustyrussell/ccan/blob/master/ccan/crypto/shachain/design.txt.
+
+Using this method:
+
+- Bob can generate up to 2^64 - 1 revocation pre-images from a single 256-bit seed
+- Bob has to do a maximum of 63 hashes, and an average of 1 hash, to generate a new revocation pre-image
+- The number of revocation pre-images that Alice needs to store grow O(log n) with the number of transactions
 
 #### 5.3 Using revocable transactions to construct two-way payment channels
 
-To create a two-way payment channel, Bob first needs to provide two revocation hashes *h(rev1)* and *h(rev2)* to Alice. Alice then constructs the anchor transaction exactly as before (where the TXO can be spent either by a 2-of-2 multi-sig or by just herself after the channel expiry duration). The difference from the one-way payment channel is in the construction of the commitment transactions: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash *h(rev1)* provided by Bob.
+To create a two-way payment channel, Bob first needs to provide two revocation hashes *h(rev1)* and *h(rev2)* to Alice. Alice then constructs the anchor transaction exactly as before. The ATx's TXO can be spent either by a 2-of-2 multi-sig or by just herself after the channel expiry duration.
+
+Alice completes the channel opening by constructing and signing the CTx1 and sending it to Bob. The difference from the one-way payment channel is in the construction of the CTxs: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash *h(rev1)* provided by Bob.
+
+The message exchange for channel opening is:
+
+![Two-way Channel - Channel Opening](./Two_Way_Channel_Messages1.svg)
 
 Commitment state 1 is as follows:
 
-![Two-way Channel - First commitment](./two-way-channel1.svg)
+![Two-way Channel - First commitment](./Two_Way_Channel_Txs1.svg)
 
-If Alice wants to increase Bob's balance in the channel to 0.02 BTC, she constructs a new commitment transaction which sends 0.98 BTC to herself and 0.02 BTC to Bob. The only difference from a simple channel is that the TXO for Bob in the CTx is an rTXO. Alice uses the second revocation hash *h(rev2)* to construct CTx2.
+If Alice then wants to increase Bob's balance in the channel to 0.02 BTC, she constructs a new CTx which sends 0.98 BTC to herself and 0.02 BTC to Bob. The only difference from a simple channel is that the TXO for Bob in the CTx is an rTXO. Alice uses the second revocation hash *h(rev2)* to construct CTx2.
 
 To acknowledge and commit the new CTx, Bob sends the revocation secret for CTx1 *rev1* along with a new revocation hash *h(rev3) so Alice can construct CTx3.
 
+The message exchange for the first channel payment from Alice to Bob is:
+
+![Two-way Channel - Alice pays Bob](./Two_Way_Channel_Messages2.svg)
+
 Commitment state 2 is:
 
-![Two-way Channel - Second commitment](./two-way-channel2.svg)
+![Two-way Channel - Second commitment](./Two_Way_Channel_Txs2.svg)
 
 Strictly speaking, Alice could use re-use the previous revocation hash to construct CTx2. That's because Alice only needs Bob to revoke an old CTx if her balance in the new CTx has increased. She doesn't need to revoke CTx1 (which gives her 0.99 BTC) since she'd be perfectly happy for Bob to broadcast CTx1 instead of CTx2 (which gives her 0.98 BTC).
 
-However, we're not going to use that optimization. It makes things simpler just to use a new revocation secret for each CTx. The sha-tree described in section 5.2 means that additional revocation secrets are cheap to generate and store, so the slight additional overhead in using unnecessary revocation hashes is acceptable for keeping the protocol simple.
+However, we're not going to use that optimization. It makes things simpler just to use a new revocation secret for each new CTx. The sha-tree described in section 5.2 means that additional revocation secrets are cheap to generate and store, so the slight additional overhead in using unnecessary revocation hashes is acceptable for keeping the protocol simple.
 
-Bob now wants to pay Alice 0.01 BTC and reduce his balance in the channel back to 0.01 BTC. Bob sends a request to Alice to create a new CTx with the new channel balances. Alice then constructs and signs CTx3 using *h(rev3)* and sends it to Bob. As before, Bob revokes the previous transaction and provides Alice with a new revocation hash:
+Bob now wants to pay Alice 0.01 BTC and reduce his balance in the channel back to 0.01 BTC. Bob sends a request to Alice to create a new CTx with the new channel balances. Alice then constructs and signs CTx3 using *h(rev3)* and sends it to Bob. As before, Bob revokes the previous transaction and provides Alice with a new revocation hash.
 
-![Two-way Channel - Third commitment](./two-way-channel3.svg)
+The message exchange for Bob's channel payment to Alice is:
+
+![Two-way Channel - Bob pays Alice](./Two_Way_Channel_Messages3.svg)
+
+Commitment state 3 is:
+
+![Two-way Channel - Third commitment](./Two_Way_Channel_Txs3.svg)
 
 Bob can close the channel as soon as the rTXO timeout duration has elapsed by signing and broadcasting the most recent CTx.
 
