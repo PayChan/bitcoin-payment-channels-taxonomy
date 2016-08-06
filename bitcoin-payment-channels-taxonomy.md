@@ -30,6 +30,7 @@
     -  8.1 Hashed contracts
     -  8.2 Hashed Time-locked contracts
     -  8.3 Embedding an HTLC into a payment channel
+-  9 Acknowledgements
 
 ## 1. Introduction
 
@@ -358,7 +359,7 @@ Using this method:
 
 To create a two-way payment channel, Bob first needs to provide two revocation hashes *h(rev1)* and *h(rev2)* to Alice. Alice then constructs the anchor transaction exactly as before. The ATx's TXO can be spent either by a 2-of-2 multi-sig or by just herself after the channel expiry duration.
 
-Alice completes the channel opening by constructing and signing the CTx1 and sending it to Bob. The difference from the one-way payment channel is in the construction of the CTxs: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash *h(rev1)* provided by Bob.
+Alice completes the channel opening by constructing and signing CTx1 and sending it to Bob. The difference from the one-way payment channel is in the construction of the CTxs: instead of including a standard P2PKH for Bob's TXO, she uses a rTXO with a revocation hash *h(rev1)* provided by Bob.
 
 The message exchange for channel opening is:
 
@@ -370,7 +371,7 @@ Commitment state 1 is as follows:
 
 If Alice then wants to increase Bob's balance in the channel to 0.02 BTC, she constructs a new CTx which sends 0.98 BTC to herself and 0.02 BTC to Bob. The only difference from a simple channel is that the TXO for Bob in the CTx is an rTXO. Alice uses the second revocation hash *h(rev2)* to construct CTx2.
 
-To acknowledge and commit the new CTx, Bob sends the revocation secret for CTx1 *rev1* along with a new revocation hash *h(rev3) so Alice can construct CTx3.
+To acknowledge and commit the new CTx, Bob sends the revocation secret for CTx1 *rev1* along with a new revocation hash *hash(rev3)* so Alice can construct CTx3.
 
 The message exchange for the first channel payment from Alice to Bob is:
 
@@ -412,15 +413,19 @@ With revocable transactions, we have a new method of preventing funds from being
 
 #### 6.2 Opening an everlasting payment channel
 
-The anchor transaction for a symmetric payment channel is simply a 2-of-2 multisig transaction. Alice's branch is no longer a refund branch, but a mirror of Bob's spend branch, so the anchor transaction TXO doesn't need a relative locktime refund branch for Alice.
+The anchor transaction for a symmetric payment channel is simply a 2-of-2 multisig transaction. Alice's branch is no longer a refund branch, but a mirror of Bob's spend branch, so the anchor transaction TXO doesn't need a relative locktime refund branch for Alice. All CTxs in the channel are the same as for the two-way channel, but are constructed as pairs - CTxA is constructed and signed by Alice and CTxB is constructed and signed by Bob.
 
-We do need to be a bit careful in opening the payment channel. If Alice just pays into a multisig address, then her funds could be stranded if Bob disappears. Therefore, the sequence for opening a symmetric transaction is as follows:
+Alice needs to be a bit careful in opening the payment channel. If she just pays into a multisig address, then her funds could be stranded if Bob disappears. Therefore, the sequence for opening a symmetric transaction is as follows:
 
 1. Alice constructs an anchor transaction to a 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it.
-2. Alice sends the txid (the hash of the transaction) to Bob, along with her first revocation hash h(revA1).
-3. Bob constructs his first commitment transaction CTxB1 using h(revA1) and sends it to Alice, along with his first revocation hash h(revB1).
-4. Alice constructs her first commitment transaction CTxA1 using h(revB1) and sends it to Bob.
+2. Alice sends the unsigned ATx to Bob, along with her first two revocation hashes h(revA1) and h(revA2).
+3. Bob constructs his first commitment transaction CTxB1 using h(revA1) and sends it to Alice, along with his first two revocation hashes h(revB1) and h(revB2).
+4. Alice verifies that CTxB1 is correct, then constructs her first commitment transaction CTxA1 using h(revB1) and sends it to Bob.
 5. Alice signs and broadcasts the anchor transaction.
+
+![Everlasting Channel - Opening The Channel](./Everlasting_Channel_Messages1.svg)
+
+Commitment state 1 is as follows:
 
 ![Everlasting Channel - Commitment State 1](./Everlasting_Channel1.svg)
 
@@ -430,15 +435,17 @@ We're now in a commitment state. Either party is able to close the channel and c
 
 If Alice wants to pay Bob in the channel, she needs to transition the channel to a new commitment state with an increased balance for Bob. She does this as follows:
 
-1. Alice constructs a new commitment transaction CTxA2 using the new balances and h(revB1) and sends it to Bob, along with a new revocation hash h(revA2).
-2. Bob constructs a new commitment transaction CTxB2 using the new balances and h(revA2) and sends it to Alice
-3. Alice sends revA1 to Bob, which revokes CtxB1.
+1. Alice constructs a new commitment transaction CTxA2 with the new balances and using h(revB2) and sends it to Bob.
+2. Bob constructs a new commitment transaction CTxB2 with the new balances and h(revA2) and sends it to Alice. He also sends revB1 to revoke the previous CTxA and hash(revB3) so Alice can construct the next CTxA.
+3. Alice sends revA1 to Bob to revoke CtxB1, and hash(revA3) so Bob can construct the next CTxB.
+
+![Everlasting Channel - Alice pays Bob](./Everlasting_Channel_Messages2.svg)
+
+Commitment state 2 is as follows:
 
 ![Everlasting Channel - Commitment State 2](./Everlasting_Channel2.svg)
 
-If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by sending a new revocation hash to Alice).
-
-The TXOs in a symmetric transaction are exactly the same is in the two-way transaction described earlier. The only difference is that the anchor transaction is a simple 2-of-2 multisig, and the CTxs are constructed as a symmetric pair and exchanged using protocol described above.
+If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by constructing a new CTxB and sending it to Alice).
 
 #### 6.4 Re-anchoring the channel
 
@@ -695,3 +702,20 @@ The unlocking scripts are:
 ```
 <Alice's sig> <rev>
 ```
+
+## 9. Acknowledgements and further reading
+
+Many people have contributed ideas to the concept of bitcoin payment channels. The list below aims to identify ideas that have been particularly important in that development. There's no doubt that I'll fail to acknowledge everyone. Please contact [@jonnynewbs](http://www.twitter.com/jonnynewbs) or raise a ticket against [the github repo](http://www.github.com/paychan/bitcoin-payment-channels-taxonomy) if you believe there to be any egregious omissions.
+
+- Simple payment channels were suggested for bitcoin as long ago as 2012. There's [a page on the bitcoin wiki](https://en.bitcoin.it/wiki/Contract#Example_7:_Rapidly-adjusted_.28micro.29payments_to_a_pre-determined_party) which describes a (pre-OP_CHECKSEQUENCEVERIFY) method for creating a payment channel. The page was written by Mike Hearn, with credit for ideas given to Nick Szabó in his paper [Formalizing and Securing Relationships on Public Networks](http://szabo.best.vwh.net/formalize.html).
+- Mike Hearn and Matt Corallo implemented payment channels in [bitcoinj](https://bitcoinj.github.io/).
+- The ideas of revocable transactions, symmetric commitment transactions and hashed time-locked contracts were introduced by Joseph Poon and Thaddeus Dryja in their paper [The Bitcoin Lightning Network](https://lightning.network/lightning-network-paper.pdf).
+- Rusty Russell wrote [an illuminating set of blog posts](http://rusty.ozlabs.org/?p=450) describing the concepts behind the lightning network. Note that many of the specific techniques described in the posts have been obsoleted by the newer OPCODEs and segwit.
+- Rusty has also written the first two [BOLTs (Basis of Lightning Technology)](https://github.com/rustyrussell/lightning-rfc/tree/master/bolts) and the [spec for sha-trees](https://github.com/rustyrussell/ccan/blob/master/ccan/crypto/shachain/design.txt).
+- The lightning-dev [mailing list](https://lists.linuxfoundation.org/pipermail/lightning-dev/) and [IRC channel](https://botbot.me/freenode/lightning-dev/) are great sources of information.
+- There are a number of lightning implementations in development:
+    - [lightningd by Blockstream](https://github.com/ElementsProject/lightning/)
+    - [lnd by lightningnetwork](https://github.com/LightningNetwork/lnd)
+    - [Thunder by Blockchain.info](https://github.com/blockchain/thunder)
+    - [Eclair by ACINQ](https://github.com/ACINQ/eclair)
+    - [Amiko-pay](https://github.com/cornwarecjp/amiko-pay)
