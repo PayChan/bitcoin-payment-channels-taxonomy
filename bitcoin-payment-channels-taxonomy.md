@@ -30,7 +30,11 @@
     -  6.3 Updating the balance
     -  6.4 Closing the channel unilaterally
     -  6.5 Closing the channel co-operatively
--  7 Acknowledgements
+-  8 Routable payment channels
+    -  8.1 Hashed contracts
+    -  8.2 Hashed Time-locked contracts
+    -  8.3 Embedding an HTLC into a payment channel
+-  9 Acknowledgements
 
 ## 1. Introduction
 
@@ -491,7 +495,191 @@ If both parties agree that they want to close the channel, they can do so co-ope
 
 As in the two-way channel, if one of the parties constructs and sends an unrevocable closing transaction but the other doesn't broadcast it to the network, the party that has constructed the closing transaction **must** close the channel unilaterally and should not sign any more commitment transactions.
 
-## 7. Acknowledgements and further reading
+## 8. Routable payment channels
+
+Payment channels exist between two parties. With the payment channels we've looked at so far, if Alice wants to pay or be paid by a new counterparty, she would need to open a new payment channel with that party. That limits the scalability of payment channels since for every new channel we need to broadcast two transactions to the blockchain. In the worst case (where the parties only want to execute a single payment) this is actually *worse* than simply broadcasting a single transaction to the blockchain.
+
+However, if we could somehow link payment channels together and route payments through them, we wouldn't need to open a new channel for each new recipient. For example, imagine:
+
+- Alice and Bob have an open payment channel
+- Bob and Carol have an open payment channel
+- Alice does not have a payment channel with Carol
+
+If Alice wants to pay Carol, she would route a payment through Alice ---> Bob ---> Carol instead of having to open a new channel to Carol.
+
+The naive way to do this would be for Alice to pay Bob and then ask Bob to pay Carol. That requires Alice to trust Bob with her payment and would allow a malicious Bob to steal Alice's money instead of delivering it to Carol.
+
+However, using a trick similar to the revocation hashes used earlier, Alice can pay Carol through Bob without having any trust in Bob. The trick uses *Hashed Time-lock Contracts* (*HTLCs*) to link the payment channels together. Payment channels that are linked into a network in this way are called a *lightning network*.
+
+The next two sections introduce the concepts of hashed contracts and hashed time-locked contracts independently from payment channels. Finally, we'll see how to embed those HTLCs within the everlasting payment channel described above to create a network of routable payment channels.
+
+#### 8.1 Hashed contracts
+
+Imagine Alice wants to pay Carol, but Alice only has AliceCoins and Carol only accepts CarolCoins. Luckily, they both know Bob, and Bob is happy to buy and sell in AliceCoins *or* CarolCoins. Alice wants to find a way to pay Bob in AliceCoins and make sure that he pays onwards to Carol.
+
+Alice doesn't trust Bob enough to pay him and know that he'll pay onwards to Carol, and Bob doesn't trust Alice enough to pay Carol and know that he'll be able to collect payment from Alice.
+
+Alice needs a contract that says "*I promise to pay Bob if he proves he's paying Alice*". Simultaneously, Bob needs a contract that says "*I promise to pay Carol if Alice proves she's paying me*".
+
+We can construct those contracts using a very similar trick to the revocation secrets used in the revocable transactions above. Here's how it works:
+
+1. Carol generates a contract secret *con* and sends the hash of that secret *h(con)* to Alice through a secure channel.
+2. Alice constructs a payment to Bob encumbered with *h(con)* and broadcasts it to the network
+3. Bob constructs a payment to Carol *encumbered with the same secret contract hash h(con)* and broadcasts it to the network
+4. Carol redeems Bob's payment by revealing *con*
+5. Bob can redeem Alice's payment by revealing *con*
+
+![Hash Contracts - 2 hops](./hash-contract1.svg)
+
+There's no reason that this method can't be extended further. Say Alice wants to pay Erica. Alice knows Bob, who knows Carol, who knows David, who knows Erica. Alice can route a payment to Erica through Bob, Carol and David:
+
+![Hash Contracts - 4 hops](./hash-contract2.svg)
+
+The locking script for Alice's hashed contract to Bob is:
+
+```
+OP_HASH160 <h(con)> OP_EQUALVERIFY OP_DROP #Check that Bob has the contract hash pre-image
+<Bob's public key> OP_CHECKSIG #Check Bob's signature
+```
+
+Bob's unlocking script is simply:
+
+```
+<Bob's sig> <con>
+```
+
+Bob can issue exactly the same contract to Carol, just swapping his public key in the locking script for Carol's.
+
+#### 8.2 Hashed Time-locked contracts
+
+If you've been reading carefully, you'll notice that there's a problem with the hashed contract protocol. It's exactly the same problem as when Alice opened her first simple payment channel with Bob. The problem is that as soon as Alice broadcast her first transaction at stage (1), if Bob stops responding (either inavertently or maliciously), her funds are stranded in a hashed contract and she can't get them back. Even worse, if Carol stops responding after Bob broadcasts his transaction in step (2), his funds are stranded in a hashed contract *and* Alice's funds are stranded in a hashed contract. Obviously, the longer the chain of hashed contracts, the more risk there is that one of the parties in the chain will disappear and strand everyone's funds.
+
+The solution to this is basically the same as the refund branch in the simple payment channel. Each hashed contract contains its own refund branch that means the contract payer can reclaim the funds if the recipient doesn't redeem the contract using the *con* within a certain timelock duration. A hashed contract with a timelocked refund branch is called a Hashed Time-locked Contract or HTLC.
+
+There are a couple of subtleties here:
+
+- because there's a chain of hashed contracts, each timelock should be slightly lower than the timelock in the previous contract. Bob doesn't want to end up in a situation where Carol has redeemed his HTLC, but Alice's HTLC to him has timed out and Alice has claimed it back. For that reason, each party in the HTLC decreases the contract timelock in his onward contract so he has plenty of time to redeem his inward contract. Alice's contract to Bob would have a four day timelock, Bob's contract to Carol would have a three day timelock, Carol's contract to David would have a two day timelock, and so on.
+- The timelocks in these contracts are *absolute* timelocks rather than *relative* timelocks. That's because the timelock should be relative to the timelock in the previous HTLC in the chain, not relative to when this HTLC happens to hit the blockchain.
+
+The chain of HTLCs now looks like this:
+
+![HTLCs - 4 hops](./htlc1.svg)
+
+The locking script for Alice's HTLC to Bob is:
+
+```
+OP_IF # Spend branch - Bob can spend the HTLC if he has the contract pre-image
+    OP_HASH160 <h(con)> OP_EQUALVERIFY OP_DROP
+    <Bob's public key>
+OP_ELSE # Renfund branch - Alice can spend if the HTLC has timed out
+    <HTLC timelock> OP_CHECKLOCKTIMEVERIFY OP_DROP
+    <Alice's public key>
+OP_ENDIF
+OP_CHECKSIG
+```
+
+Bob's spend unlocking script is:
+
+```
+<Bob's sig> <con> 1
+```
+
+Alice's refund unlocking script is:
+
+```
+<Alice's sig> 0
+```
+
+#### 8.3 Embedding an HTLC into a payment channel
+
+We can embed the HTLC in a payment channel by adding the HTLC as a TXO to the commitment script. To add a routed payment, we transition from a commitment state without the HTLC to a new commitment state where the commitment transactions contain an HTLC:
+
+![Lightning Channel](./Lightning_Channel1.svg)
+
+There's one very small detail that needs to change in the HTLC before we can do that. The parties in the channel need to be able to revoke HTLCs in previous commitment states, just like they're able to revoke the rTXOs. That's so that when they revoke a previous transaction state, all the TXOs from it are revoked.
+
+The HTLC is redeemable in three ways:
+
+- by the recipient by using the contract pre-image
+- by the sender if the HTLC timelock has expired
+- (if one of the parties in the channel tried to cheat and redeem an old commitment state) by the cheated party by using the revocation pre-image
+
+The locking script for the HTLC is slightly different in the two branches. If Alice is adding an HTLC to Bob, the locking script in her branch is:
+
+```
+OP_HASH160 OP_DUP
+   h(rev) OP_EQUAL OP_SWAP​
+   h(con) OP_EQUAL
+OP_ADD
+OP_IF
+   <Bob's public key>
+OP_ELSE
+   <HTLC timelock> OP_CHECKTIMELOCKVERIFY OP_DROP
+   <Alice's public key>
+​OP_ENDIF​
+OP_CHECKSIG
+```
+
+The unlocking scripts are:
+
+1. Bob spends by using the contract pre-image:
+
+```
+<Bob's sig> <con>
+```
+
+2. Alice spends after the HTLC timelock:
+
+```
+<Alice's sig> 0
+```
+
+3. Alice tries to cheat by broadcasting this old commitment state, so Bob claims the revocation branch and HTLCs using the revocation pre-image:
+
+```
+<Bob's sig> <rev>
+```
+
+The locking script in Bob's branch is:
+
+```
+OP_HASH160 OP_DUP
+<h(con)> OP_EQUAL
+OP_IF
+    OP_DROP
+    <revocation timeout duration> OP_CHECKSEQUENCEVERIFY OP_DROP
+    <Bob's public key>
+OP_ELSE
+    <h(rev)> OP_EQUAL
+    OP_IF OP_ELSE
+        <HTLC timelock> OP_CHECKTIMELOCKVERIFY OP_DROP
+    OP_ENDIF
+    <Alice's public key>
+OP_ENDIF
+OP_CHECKSIG
+```
+
+The unlocking scripts are:
+
+1. Bob spends by using the contract pre-image after the revocation timelock
+
+```
+<Bob's sig> <con>
+```
+
+2. Alice spends after the HTLC timelock:
+
+```
+<Alice's sig> 0
+```
+
+3. Bob tries to cheat by broadcasting this old commitment state, so Alice claims the revocation branch and HTLCs using the revocation pre-image:
+
+```
+<Alice's sig> <rev>
+```
+
+## 9. Acknowledgements and further reading
 
 Many people have contributed ideas to the concept of bitcoin payment channels. The list below aims to identify ideas that have been particularly important in that development. There's no doubt that I'll fail to acknowledge everyone. Please contact [@jonnynewbs](http://www.twitter.com/jonnynewbs) or raise a ticket against [the github repo](http://www.github.com/paychan/bitcoin-payment-channels-taxonomy) if you believe there to be any egregious omissions.
 
