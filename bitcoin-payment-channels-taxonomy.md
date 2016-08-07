@@ -28,9 +28,11 @@
     -  6.1 Symmetric commitment states
     -  6.2 Opening the channel
     -  6.3 Updating the balance
-    -  6.4 Closing the channel unilaterally
-    -  6.5 Closing the channel co-operatively
--  7 Acknowledgements
+    -  6.4 Re-anchoring the channel
+    -  6.5 Closing the channel unilaterally
+    -  6.6 Closing the channel co-operatively
+-  7 Dual-funded payment channels
+-  8 Acknowledgements
 
 ## 1. Introduction
 
@@ -479,19 +481,87 @@ Commitment state 2 is as follows:
 
 If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by constructing a new CTxB and sending it to Alice).
 
+<<<<<<< 3699d051ad19fa04c497231769db72089a977053
 #### 6.4 Closing the channel unilaterally
+=======
+#### 6.4 Re-anchoring the channel
+
+Since there is no refund transaction in this type of channel, it's possible for the parties to co-operate to add fresh funds to the payment channel or withdraw funds from the payment channel without closing it.
+
+If one party runs out of funds in the channel, they may want to recharge the payment channel with additional funds (one blockchain transaction) rather than close the channel and open a new channel (two transactions).
+
+Let's assume Alice wants to add funds to the channel. The process is as follows:
+
+1. Alice constructs and signs a second anchor transaction ATx2 to the 2-of-2 multisig address for Alice and Bob, but she doesn't broadcast or share it. The TXIs for ATx2 are the TXO from ATx1 and a new TXI from Alice for the recharge amount.
+2. Alice sends the txid (the hash of the transaction) to Bob, along with a new revocation hash h(revA2-1).
+3. Bob constructs a new commitment transaction CTxB2-1 as follows:
+    - The TXI is the TXO from ATx2
+    - Bob's balance is the same is it was in the previous CTx
+    - Alice's balance is her balance from the previous CTx plus the additional funds she's just paid into the channel with ATx2
+    - the revocation hash is h(revA2-1)
+4. Bob sends CTxB2-1 to Alice, along with a new revocation hash h(revB2-1).
+5. Alice constructs her first commitment transaction CTxA2-1. This is the mirror of Bob's commitment transaction CTxB2-1.
+6. Alice broadcasts ATx2 to the Bitcoin network
+7. Alice sends the revocation pre-image from the previous CTxA to Bob.
+8. Bob sends the revocation pre-image from the previous CTxB to Alice.
+
+Withdrawals can be made in a similar way. If Alice wants to withdraw funds from the channel:
+
+1. Alice constructs and signs a second anchor transaction ATx2, but she doesn't broadcast or share it. The TXI for ATx2 is the TXO from ATx1 and a new TXI from Alice for the recharge amount. There are two TXOs: one which pays into the 2-of-2 multisig (for the channel), and one which pays to Alice.
+2. Alice sends the txid (the hash of the transaction) to Bob, along with a new revocation hash h(revA2-1).
+3. Bob constructs a new commitment transaction CTxB2-1 as follows:
+    - The TXI is the first TXO from ATx2
+    - Bob's balance is the same is it was in the previous CTx
+    - Alice's balance is her balance from the previous CTx minus the funds she's just withdrawn from ATx1
+    - the revocation hash is h(revA2-1)
+4. Bob sends CTxB2-1 to Alice, along with a new revocation hash h(revB2-1).
+5. Alice constructs her first commitment transaction CTxA2-1. This is the mirror of Bob's commitment transaction CTxB2-1.
+6. Alice broadcasts ATx2 to the Bitcoin network
+7. Alice sends the revocation pre-image from the previous CTxA to Bob.
+8. Bob sends the revocation pre-image from the previous CTxB to Alice.
+
+Paying into the payment channel (from one side) and withdrawing from the payment channel (to the other side) is a quick way to rebalance a payment channel that has become unbalanced.
+
+![Everlasting Channel - Re-anchoring the channel](./Everlasting_Channel3.svg)
+
+#### 6.5 Closing the channel co-operatively
+
+If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a *closing transaction* as follows:
+
+1. the TXI is the TXO from the anchor transactions
+2. there are two TXOs:
+    - a P2PKH to Alice for her balance (from the current commitment state)
+    - a P2PKH to Bob for his balance (from the current commitment state)
+
+she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:
+
+![Symmetric Channel - Closing the channel co-operatively](./Everlasting_Channel4.svg)
+>>>>>>> add reanchoring
 
 In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx, and then claim their funds after waiting for the revocation timeout duration.
 
 This is exactly the same message exchange and protocol as closing a two-way channel unilaterally. The only difference is in a two-way channel only Bob could close the channel unilaterally, whereas in a symmetrical channel either party can close the channel unilaterally.
 
+<<<<<<< 3699d051ad19fa04c497231769db72089a977053
 #### 6.5 Closing the channel co-operatively
+=======
+#### 6.6 Closing the channel unilaterally
+>>>>>>> add reanchoring
 
 If both parties agree that they want to close the channel, they can do so co-operatively and have access to their funds immediately without having to wait for the revocation timeout delay. The message exchange protocol for closing the channel co-operatively is exactly the same as in the earlier two-way channel case. Again, the only difference is that both Alice can propose to close the channel co-operatively since the channel is entirely symmetrical.
 
 As in the two-way channel, if one of the parties constructs and sends an unrevocable closing transaction but the other doesn't broadcast it to the network, the party that has constructed the closing transaction **must** close the channel unilaterally and should not sign any more commitment transactions.
 
-## 7. Acknowledgements and further reading
+## 7. Dual-funded payment channels
+
+So far, all of the payment channels that we've seen have been wholly funded by Alice. We now have a method of opening a payment channel that's funded by both parties:
+
+1. Alice opens the payment channel as normal with her funds.
+2. Alice and Bob co-operate to re-anchor the payment channel using Bob's funds as an additional input.
+
+![Dual-funded Payment Channel](./Dual_Funded_Channel.svg)
+
+## 8. Acknowledgements and further reading
 
 Many people have contributed ideas to the concept of bitcoin payment channels. The list below aims to identify ideas that have been particularly important in that development. There's no doubt that I'll fail to acknowledge everyone. Please contact [@jonnynewbs](http://www.twitter.com/jonnynewbs) or raise a ticket against [the github repo](http://www.github.com/paychan/bitcoin-payment-channels-taxonomy) if you believe there to be any egregious omissions.
 
