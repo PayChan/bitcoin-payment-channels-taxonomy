@@ -8,34 +8,34 @@
 <li>2 A brief overview</li>
 <li>3 Diagram style
 <ul>
-<li>3.1 Transaction Graphs
+<li>3.1 Transaction graphs
 <ul>
 <li>Transaction types</li>
 </ul>
 </li>
-<li>3.2 Message Exchange Diagrams</li>
-<li>3.3 Payment Channel Balance Diagrams</li>
+<li>3.2 Message exchange diagrams</li>
+<li>3.3 Payment channel balance diagrams</li>
 </ul>
 </li>
-<li>4 Simple Payment Channel
+<li>4 Simple payment channel
 <ul>
 <li>4.1 Opening the channel</li>
-<li>4.2 Updating balances in the channel</li>
-<li>4.3 Redeeming a Commitment Transaction</li>
-<li>4.4 Exercising the Refund Branch</li>
+<li>4.2 Updating the balances in the channel</li>
+<li>4.3 Redeeming a commitment transaction</li>
+<li>4.4 Redeeming the refund branch</li>
 </ul>
 </li>
-<li>5 Two-way Channels
+<li>5 Two-way channels
 <ul>
-<li>5.1 Revocable Transactions</li>
+<li>5.1 Revocable transactions</li>
 <li>5.3 Using sha-trees for efficient construcion and storage of revocation secrets</li>
 <li>5.2 Using revocable transactions to construct two-way payment channels</li>
 </ul>
 </li>
-<li>6 Everlasting Payment Channels
+<li>6 Non-expiring payment channels
 <ul>
 <li>6.1 Symmetric commitment states</li>
-<li>6.2 Opening an everlasting payment channel</li>
+<li>6.2 Opening the channel</li>
 <li>6.3 Updating the balance</li>
 <li>6.4 Closing the channel co-operatively</li>
 <li>6.5 Closing the channel unilaterally</li>
@@ -78,7 +78,7 @@
 <p>The <em>consensus</em> property guarantees that the channel remains synchronized between both parties and that the channel never enters a state where the parties’ balances are confused. The <em>exit</em> property guarantees that at all times during channel’s existence, both parties have an escape route to claim their balance. The <em>safeguard</em> property guarantees that by entering into a payment channel, neither party can be denied their full balance (so long as they act correctly).</p>
 <p>Taken together, these properties ensure the trustless nature of the payment channel and mean that neither party takes on risk by entering into the channel.</p>
 <h2><a id="3_Diagram_style_71"></a>3. Diagram style</h2>
-<h4><a id="31_Transaction_Graphs_73"></a>3.1 Transaction Graphs</h4>
+<h4><a id="31_Transaction_graphs_73"></a>3.1 Transaction graphs</h4>
 <p>Bitcoin transactions are collections of Transaction Inputs (TXIs) and Transaction Outputs (TXOs). The simplest Bitcoin transaction consists of a single TXI and a single TXO. The value of the TXO is equal to the value of the TXI (less the transaction fee):</p>
 <p><img src="./Basic_Transaction1.svg" alt="Simple Transaction"></p>
 <p>A TXI is simply an unspent TXO (a UTXO) from a previous transaction, and the TXO from this transaction will go on to be a TXI in a future transaction. We can draw a chain of transactions as follows:</p>
@@ -101,7 +101,7 @@
 <p><img src="./Transaction_Types3.svg" alt="Overwritten Transaction"></p>
 <p>Once a transaction has a valid witness, that witness is valid forever. However, the transaction can be invalidated by creating and broadcasting a new transaction which double-spends the TXIs for the old transaction. We’ll colour transactions that have been invalidated in this way red:</p>
 <p><img src="./Transaction_Types4.svg" alt="Invalidated Transaction"></p>
-<h4><a id="32_Message_Exchange_Diagrams_119"></a>3.2 Message Exchange Diagrams</h4>
+<h4><a id="32_Message_exchange_diagrams_119"></a>3.2 Message exchange diagrams</h4>
 <p>Message exchange is depicted using standard ladder diagrams. As well as showing message exchange between the participants in a channel, the ladder diagram can also show one of the participants broadcasting a message to the blockchain:</p>
 <p><img src="./Ladder_Diagram.svg" alt="Ladder Diagram"></p>
 <p>In practice, when we show Alice broadcasting a ‘signed transaction’ to Bob within the channel, Alice may only be broadcasting a signature. As long as Bob knows what the transaction format should be, there’s no need for Alice to send the full transaction to Bob.</p>
@@ -117,7 +117,7 @@
 <p><img src="./Payment_Channel_Diagram4.svg" alt="Payment Channel Diagram 4"></p>
 <p>Finally, Alice closes out the channel, freeing up 5 BTC for herself and 15 BTC for Bob:</p>
 <p><img src="./Payment_Channel_Diagram5.svg" alt="Payment Channel Diagram 5"></p>
-<h2><a id="4_Simple_Payment_Channel_151"></a>4. Simple Payment Channel</h2>
+<h2><a id="4_Simple_payment_channel_151"></a>4. Simple payment channel</h2>
 <p>This is the simplest form of Payment Channel. It is <strong>One-way</strong>, <strong>Simplex</strong> or <strong>Unidirectional</strong>, which means that funds can only flow in one direction from payer to recipient. It is also <strong>Fixed-duration</strong>, which means that the payment channel has to be closed out with a <em>closing transaction</em> before a fixed expiry time. If the payer wishes to continue paying the recipient through a channel after this time, she must open a fresh payment channel with a new <em>anchor transaction</em>.</p>
 <p>As is tradition, Alice is the payer and Bob is the recipient. Alice wishes to pay Bob in increments of 0.01 BTC up to a maximum of 1 BTC.</p>
 <h4><a id="41_Opening_the_channel_157"></a>4.1 Opening the channel</h4>
@@ -151,7 +151,7 @@ OP_ENDIF
 <li>Both parties have an escape route: Alice can escape by broadcasting her refund transaction and claiming 1 BTC (after the channel expiry duration), and Bob can escape by signing and brodcasting CTx1 and claiming his 0.01 BTC.</li>
 <li>Both parties are guaranteed their full balance: Alice gets at least 0.99 BTC in both escape paths. Bob can guarantee he’ll get 0.01 BTC by broadcasting CTx1 before Alice broadcasts the refund transaction. To make sure this happens, he just needs to broadcast the CTx well before the channel expiry duration.</li>
 </ol>
-<h4><a id="42_Updating_balances_in_the_channel_198"></a>4.2 Updating balances in the channel</h4>
+<h4><a id="42_Updating_the_balances_in_the_channel_198"></a>4.2 Updating the balances in the channel</h4>
 <p>Let’s assume that Bob hasn’t closed out the channel and Alice wants to pay a further 0.01 BTC to Bob. She constructs and signs a second commitment transaction CTx2 and sends it to Bob. This second transaction has exactly the same anchor transaction TXO as its TXI, but now produces the following TXOs:</p>
 <ul>
 <li>TXO1 is for 0.02 BTC and can be spent with Bob’s signature</li>
@@ -193,7 +193,7 @@ OP_ENDIF
 <p>Bob broadcasts CTx4 transaction, which has the following unlocking script:</p>
 <pre><code>&lt;Alice's sig&gt; &lt;Bob's sig&gt; 1
 </code></pre>
-<h4><a id="44_Closing_the_channel_by_exercising_the_refund_branch_255"></a>4.4 Closing the channel by exercising the refund branch</h4>
+<h4><a id="44_Closing_the_channel_by_redeeming_the_refund_branch_255"></a>4.4 Closing the channel by redeeming the refund branch</h4>
 <p>Bob should never let the channel expiry time pass without broadcasting a CTx. Once the channel is expired, Alice is able to broadcast the RTx and reclaim all the funds in the channel.</p>
 <p>However, if Bob stops responding, Alice needs a way to reclaim the funds from the channel. She does this by constructing and broadcasting a refund transaction.</p>
 <p>Here’s a diagram of Bob disappearing after 2 CTxs, and Alice reclaiming the funds with an RTx:</p>
@@ -201,10 +201,10 @@ OP_ENDIF
 <p>The refund transaction takes the anchor transaction TXO as its TXI and has the following unlocking script:</p>
 <pre><code>&lt;Alice's sig&gt; 0
 </code></pre>
-<h2><a id="5_Twoway_Channels_271"></a>5. Two-way Channels</h2>
+<h2><a id="5_Twoway_channels_271"></a>5. Two-way channels</h2>
 <p>One of the most obvious limitations of the simple payment channel is that it is one-way. Bob’s balance in the channel can only ever increase, and Alice’s balance can only ever decrease. This is because every commitment transaction that Alice signs and sends to Bob is valid forever (at least until one of them is broadcast and confirmed). Even if Alice constructs and signs a new transaction with a smaller balance for Bob, Bob will always be able to broadcast the commitment transaction which assigns him the greatest balance. Alice has no way to stop Bob from doing this, and no way to invalidate the old commitment trasactions.</p>
 <p>However, there is a trick that allows Alice to ensure that Bob can’t use a previous commitment transaction to claim an old balance. This trick uses hash pre-images and timelocks to construct a <em>revocable</em> transaction. That’s what we’ll look at next.</p>
-<h4><a id="51_Revocable_Transactions_277"></a>5.1 Revocable Transactions</h4>
+<h4><a id="51_Revocable_transactions_277"></a>5.1 Revocable transactions</h4>
 <p>The trick to creating revocable transactions is to construct one of the TXOs such that it is either encumbered by:</p>
 <ul>
 <li>Bob’s signature and a relative timelock (Bob’s <em>spend branch</em>); or</li>
@@ -275,13 +275,13 @@ OP_CHECKSIG
 <p><img src="./Two_Way_Channel_Txs3.svg" alt="Two-way Channel - Third commitment"></p>
 <p>Bob can close the channel as soon as the rTXO timeout duration has elapsed by signing and broadcasting the most recent CTx.</p>
 <p>Bob needs to make sure that he is able to close the most recent CTx well before Alice is able to broadcast RTx. Since the CTxs are encumbered by an rTXO timeout, in effect Bob needs to stop revoking old CTxs well before the channel expiry time.</p>
-<h2><a id="6_Everlasting_Payment_Channels_395"></a>6. Everlasting Payment Channels</h2>
+<h2><a id="6_Nonexpiring_Payment_Channels_395"></a>6. Non-expiring Payment Channels</h2>
 <p>So far, we’ve seen how to construct one-way and two-way payment channels. However, we’re still limited by the channel expiry duration, which is determined by the relative locktime on Alice’s refund branch. This means that our payment channels can only be open for a certain period of time before the channel has to be closed by Bob.</p>
 <p>Next we’ll look at how to construct a payment channel that can stay open indefinitely.</p>
 <h4><a id="61_Symmetric_commitment_states_401"></a>6.1 Symmetric commitment states</h4>
 <p>Payment channels have two branches. So far, the payment channels we’ve seen have a <em>spend</em> branch for Bob and a <em>refund</em> branch for Alice. The refund branch is required to prevent Alice’s funds from being stranded (Alice’s <em>escape</em> clause), and needs to have a relative timelock to prevent Alice from stealing all the funds in the channel (Bob’s <em>safeguard</em> clause).</p>
 <p>With revocable transactions, we have a new method of preventing funds from being stranded inside the transaction. Instead of Alice’s branch being a refund transaction, we can create a mirror image of Bob’s branch, with the revocable transaction ensuring that the funds don’t get stranded. Either party can close out the channel with their most recent commitment transaction, so there’s no longer any need for a refund branch.</p>
-<h4><a id="62_Opening_an_everlasting_payment_channel_407"></a>6.2 Opening an everlasting payment channel</h4>
+<h4><a id="62_Opening_a_nonexpiring_payment_channel_407"></a>6.2 Opening a non-expiring payment channel</h4>
 <p>The anchor transaction for a symmetric payment channel is simply a 2-of-2 multisig transaction. Alice’s branch is no longer a refund branch, but a mirror of Bob’s spend branch, so the anchor transaction TXO doesn’t need a relative locktime refund branch for Alice. All CTxs in the channel are the same as for the two-way channel, but are constructed as pairs - CTxA is constructed and signed by Alice and CTxB is constructed and signed by Bob.</p>
 <p>Alice needs to be a bit careful in opening the payment channel. If she just pays into a multisig address, then her funds could be stranded if Bob disappears. Therefore, the sequence for opening a symmetric transaction is as follows:</p>
 <ol>
@@ -291,20 +291,20 @@ OP_CHECKSIG
 <li>Alice verifies that CTxB1 is correct, then constructs her first commitment transaction CTxA1 using h(revB1) and sends it to Bob.</li>
 <li>Alice signs and broadcasts the anchor transaction.</li>
 </ol>
-<p><img src="./Everlasting_Channel_Messages1.svg" alt="Everlasting Channel - Opening The Channel"></p>
+<p><img src="./Non_Expiring_Channel_Messages1.svg" alt="Non-expiring Channel - Opening The Channel"></p>
 <p>Commitment state 1 is as follows:</p>
-<p><img src="./Everlasting_Channel1.svg" alt="Everlasting Channel - Commitment State 1"></p>
+<p><img src="./Non_Expiring_Channel1.svg" alt="Non-expiring Channel - Commitment State 1"></p>
 <p>We’re now in a commitment state. Either party is able to close the channel and claim their full balance (after the revocation timeout).</p>
-<h4><a id="63_Updating_the_balance_427"></a>6.3 Updating the balance</h4>
+<h4><a id="63_Updating_the_balances_in_the_channel_427"></a>6.3 Updating the balances in the channel</h4>
 <p>If Alice wants to pay Bob in the channel, she needs to transition the channel to a new commitment state with an increased balance for Bob. She does this as follows:</p>
 <ol>
 <li>Alice constructs a new commitment transaction CTxA2 with the new balances and using h(revB2) and sends it to Bob.</li>
 <li>Bob constructs a new commitment transaction CTxB2 with the new balances and h(revA2) and sends it to Alice. He also sends revB1 to revoke the previous CTxA and hash(revB3) so Alice can construct the next CTxA.</li>
 <li>Alice sends revA1 to Bob to revoke CtxB1, and hash(revA3) so Bob can construct the next CTxB.</li>
 </ol>
-<p><img src="./Everlasting_Channel_Messages2.svg" alt="Everlasting Channel - Alice pays Bob"></p>
+<p><img src="./Non_Expiring_Channel_Messages2.svg" alt="Non-expiring Channel - Alice pays Bob"></p>
 <p>Commitment state 2 is as follows:</p>
-<p><img src="./Everlasting_Channel2.svg" alt="Everlasting Channel - Commitment State 2"></p>
+<p><img src="./Non_Expiring_Channel2.svg" alt="Non-expiring Channel - Commitment State 2"></p>
 <p>If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by constructing a new CTxB and sending it to Alice).</p>
 <h4><a id="64_Closing_the_channel_cooperatively_443"></a>6.4 Closing the channel co-operatively</h4>
 <p>If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a <em>closing transaction</em> as follows:</p>
@@ -318,12 +318,12 @@ OP_CHECKSIG
 </li>
 </ol>
 <p>she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:</p>
-<p><img src="./Everlasting_Channel4.svg" alt="Symmetric Channel - Closing the channel co-operatively"></p>
+<p><img src="./Non_Expiring_Channel4.svg" alt="Symmetric Channel - Closing the channel co-operatively"></p>
 <p>Bob can close the channel co-operatively in exactly the same way, since the channel is entirely symmetrical.</p>
 <p>If Alice constructs and sends the closing transaction to close the channel co-operatively but Bob doesn’t broadcast it to the network, Alice <strong>must</strong> close the channel unilaterally and should not sign any more commitment transactions. This is because Alice cannot revoke the closing transaction, so Bob might keep hold of it and broadcast it after his balance has decreased.</p>
 <h4><a id="65_Closing_the_channel_unilaterally_460"></a>6.5 Closing the channel unilaterally</h4>
 <p>In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx after waiting for the revocation timeout duration.</p>
-<p><img src="./Everlasting_Channel5.svg" alt="Symmetric Channel - Closing the channel unilaterally"></p>
+<p><img src="./Non_Expiring_Channel5.svg" alt="Symmetric Channel - Closing the channel unilaterally"></p>
 <h2><a id="7_Acknowledgements_and_further_reading_466"></a>7. Acknowledgements and further reading</h2>
 <p>Many people have contributed ideas to the concept of bitcoin payment channels. The list below aims to identify ideas that have been particularly important in that development. There’s no doubt that I’ll fail to acknowledge everyone. Please contact <a href="http://www.twitter.com/jonnynewbs">@jonnynewbs</a> or raise a ticket against <a href="http://www.github.com/paychan/bitcoin-payment-channels-taxonomy">the github repo</a> if you believe there to be any egregious omissions.</p>
 <ul>
