@@ -29,8 +29,8 @@
     -  6.2 Opening the channel
     -  6.3 Updating the balance
     -  6.4 Re-anchoring the channel
-    -  6.5 Closing the channel co-operatively
-    -  6.6 Closing the channel unilaterally
+    -  6.5 Closing the channel unilaterally
+    -  6.6 Closing the channel co-operatively
 -  7 Dual-funded payment channels
 -  8 Acknowledgements
 

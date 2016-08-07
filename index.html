@@ -314,7 +314,7 @@ OP_CHECKSIG
 <p>If we contstruct the channel in such a way that instead of having a refund branch, Alice has her own spend branch, then the channel doesn’t need an expiry time. Either party can unilaterally close the channel at any time, which means they both have an <em>escape</em> route. Alice’s spend branch is an exact mirror of Bob’s.</p>
 <p>These mirrored symmetric commitment transactions require the balance in one commitement transaction to go down when the balance in its mirror commitment transaction goes up. For that reason, we can’t have symmetric commitment transactions for a simple channel since balances in simple channels can only go one way. However, using revocable transactions we <em>can</em> create symmetric commitment transactions where the balance in one commitment transaction decreases as the balance in the other commitment transaction increases.</p>
 <p>Under this scheme Alice signs CTxA and sends it to Bob, and Bob signs CTxB and sends it to Alice.</p>
-<h4><a id="62_Opening_a_nonexpiring_payment_channel_445"></a>6.2 Opening a non-expiring payment channel</h4>
+<h4><a id="62_Opening_a_nonexpiring_payment_channel_447"></a>6.2 Opening a non-expiring payment channel</h4>
 <p>The anchor transaction for a symmetric payment channel is simply a 2-of-2 multisig transaction. Alice’s branch is no longer a refund branch, but a mirror of Bob’s spend branch, so the anchor transaction TXO doesn’t need a refund branch for Alice with a relative locktime. All CTxs in the channel are the same as for the two-way channel, but are constructed as pairs - CTxA is constructed and signed by Alice and CTxB is constructed and signed by Bob.</p>
 <p>Alice needs to be a bit careful in opening the payment channel. If she just pays into a multisig address and Bob disappears, then her funds would be stranded. Therefore, the sequence for opening a symmetric transaction is as follows:</p>
 <ol>
@@ -328,7 +328,7 @@ OP_CHECKSIG
 <p>Commitment state 1 is as follows:</p>
 <p><img src="./Non_Expiring_Channel1.svg" alt="Non-expiring Channel - Commitment State 1"></p>
 <p>We’re now in a commitment state. Either party is able to close the channel unilaterally and (after the revocation timeout) claim their full balance.</p>
-<h4><a id="63_Updating_the_balances_in_the_channel_465"></a>6.3 Updating the balances in the channel</h4>
+<h4><a id="63_Updating_the_balances_in_the_channel_467"></a>6.3 Updating the balances in the channel</h4>
 <p>If Alice wants to pay Bob in the channel, she needs to transition the channel to a new commitment state with an increased balance for Bob. She does this as follows:</p>
 <ol>
 <li>Alice constructs a new commitment transaction CTxA2 using h(revB2) with the new balances, signs it and sends it to Bob.</li>
@@ -339,7 +339,7 @@ OP_CHECKSIG
 <p>Commitment state 2 is as follows:</p>
 <p><img src="./Non_Expiring_Channel2.svg" alt="Non-expiring Channel - Commitment State 2"></p>
 <p>If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by constructing a new CTxB and sending it to Alice).</p>
-<h4><a id="64_Reanchoring_the_channel_481"></a>6.4 Re-anchoring the channel</h4>
+<h4><a id="64_Reanchoring_the_channel_483"></a>6.4 Re-anchoring the channel</h4>
 <p>Since there is no refund transaction in this type of channel, it’s possible for the parties to co-operate to add fresh funds to the payment channel or withdraw funds from the payment channel without closing it.</p>
 <p>If one party runs out of funds in the channel, they may want to recharge the payment channel with additional funds (one blockchain transaction) rather than close the channel and open a new channel (two transactions).</p>
 <p>Let’s assume Alice wants to add funds to the channel. The process is as follows:</p>
@@ -380,20 +380,20 @@ OP_CHECKSIG
 </ol>
 <p>Paying into the payment channel (from one side) and withdrawing from the payment channel (to the other side) is a quick way to rebalance a payment channel that has become unbalanced.</p>
 <p><img src="./Everlasting_Channel3.svg" alt="Everlasting Channel - Re-anchoring the channel"></p>
-<h4><a id="65_Closing_the_channel_cooperatively_521"></a>6.5 Closing the channel co-operatively</h4>
+<h4><a id="66_Closing_the_channel_unilaterally_523"></a>6.6 Closing the channel unilaterally</h4>
 <p>In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx, and then claim their funds after waiting for the revocation timeout duration.</p>
 <p>This is exactly the same message exchange and protocol as closing a two-way channel unilaterally. The only difference is in a two-way channel only Bob could close the channel unilaterally, whereas in a symmetrical channel either party can close the channel unilaterally.</p>
-<h4><a id="66_Closing_the_channel_unilaterally_527"></a>6.6 Closing the channel unilaterally</h4>
+<h4><a id="65_Closing_the_channel_cooperatively_529"></a>6.5 Closing the channel co-operatively</h4>
 <p>If both parties agree that they want to close the channel, they can do so co-operatively and have access to their funds immediately without having to wait for the revocation timeout delay. The message exchange protocol for closing the channel co-operatively is exactly the same as in the earlier two-way channel case. Again, the only difference is that both Alice can propose to close the channel co-operatively since the channel is entirely symmetrical.</p>
 <p>As in the two-way channel, if one of the parties constructs and sends an unrevocable closing transaction but the other doesn’t broadcast it to the network, the party that has constructed the closing transaction <strong>must</strong> close the channel unilaterally and should not sign any more commitment transactions.</p>
-<h2><a id="7_Dualfunded_payment_channels_533"></a>7. Dual-funded payment channels</h2>
+<h2><a id="7_Dualfunded_payment_channels_535"></a>7. Dual-funded payment channels</h2>
 <p>So far, all of the payment channels that we’ve seen have been wholly funded by Alice. We now have a method of opening a payment channel that’s funded by both parties:</p>
 <ol>
 <li>Alice opens the payment channel as normal with her funds.</li>
 <li>Alice and Bob co-operate to re-anchor the payment channel using Bob’s funds as an additional input.</li>
 </ol>
 <p><img src="./Dual_Funded_Channel.svg" alt="Dual-funded Payment Channel"></p>
-<h2><a id="8_Acknowledgements_and_further_reading_542"></a>8. Acknowledgements and further reading</h2>
+<h2><a id="8_Acknowledgements_and_further_reading_544"></a>8. Acknowledgements and further reading</h2>
 <p>Many people have contributed ideas to the concept of bitcoin payment channels. The list below aims to identify ideas that have been particularly important in that development. There’s no doubt that I’ll fail to acknowledge everyone. Please contact <a href="http://www.twitter.com/jonnynewbs">@jonnynewbs</a> or raise a ticket against <a href="http://www.github.com/paychan/bitcoin-payment-channels-taxonomy">the github repo</a> if you believe there to be any egregious omissions.</p>
 <ul>
 <li>Simple payment channels were suggested for bitcoin as long ago as 2012. There’s <a href="https://en.bitcoin.it/wiki/Contract#Example_7:_Rapidly-adjusted_.28micro.29payments_to_a_pre-determined_party">a page on the bitcoin wiki</a> which describes a (pre-OP_CHECKSEQUENCEVERIFY) method for creating a payment channel. The page was written by Mike Hearn, with credit for ideas given to Nick Szabó in his paper <a href="http://szabo.best.vwh.net/formalize.html">Formalizing and Securing Relationships on Public Networks</a>.</li>
