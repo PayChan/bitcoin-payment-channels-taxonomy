@@ -28,13 +28,8 @@
     -  6.1 Symmetric commitment states
     -  6.2 Opening the channel
     -  6.3 Updating the balance
-<<<<<<< HEAD
     -  6.4 Closing the channel unilaterally
     -  6.5 Closing the channel co-operatively
-=======
-    -  6.4 Closing the channel co-operatively
-    -  6.5 Closing the channel unilaterally
->>>>>>> 9364929e40d1c65831c3bb2941321d2c2486cfe1
 -  8 Routable payment channels
     -  8.1 Hashed contracts
     -  8.2 Hashed Time-locked contracts
@@ -684,8 +679,6 @@ The unlocking scripts are:
 <Alice's sig> <rev>
 ```
 
-<<<<<<< HEAD
-=======
 ## 8. Routable payment channels
 
 Payment channels exist between two parties. With the payment channels we've looked at so far, if Alice wants to pay or be paid by a new counterparty, she would need to open a new payment channel with that party. That limits the scalability of payment channels since for every new channel we need to broadcast two transactions to the blockchain. In the worst case (where the parties only want to execute a single payment) this is actually *worse* than simply broadcasting a single transaction to the blockchain.
@@ -870,7 +863,6 @@ The unlocking scripts are:
 <Alice's sig> <rev>
 ```
 
->>>>>>> 9364929e40d1c65831c3bb2941321d2c2486cfe1
 ## 9. Acknowledgements and further reading
 
 Many people have contributed ideas to the concept of bitcoin payment channels. The list below aims to identify ideas that have been particularly important in that development. There's no doubt that I'll fail to acknowledge everyone. Please contact [@jonnynewbs](http://www.twitter.com/jonnynewbs) or raise a ticket against [the github repo](http://www.github.com/paychan/bitcoin-payment-channels-taxonomy) if you believe there to be any egregious omissions.
