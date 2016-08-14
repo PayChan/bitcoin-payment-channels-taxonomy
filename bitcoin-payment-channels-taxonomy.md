@@ -405,7 +405,7 @@ Two-way payment channel can be closed either unilaterally by Bob or co-operative
 
 Bob can close the channel at any point by signing and broadcasting the most recent CTx. Once the CTx is broadcast, he must then wait for the rTXO timeout duration before he's able to spend his output from the CTx.
 
-The message exchange diagram below shows the channel being opened, one payment being made in each direction, and then Bob unilaterally closing the channel. Note that Alice has access to her funds as soon as Bob broadcasts the CTx, but Bob must wait for the revocation timeout delay.
+The message exchange diagram below shows Bob unilaterally closing the channel after commitment state 3. Note that Alice has access to her funds as soon as Bob broadcasts the CTx, but Bob must wait for the revocation timeout delay.
 
 ![Two-way Channel - Bob closes unilaterally](./Two_Way_Channel_Messages4.svg)
 
@@ -417,7 +417,7 @@ Bob may not want to wait for an rTXO timeout duration before spending his funds.
 2. Alice constructs, signs and sends to Bob an unrevocable CTx with the same balances for herself and for Bob as the previous CTx. The difference is that Bob's TXO is now a simple P2PKHs instead of an rTXO. This is exactly the same as a cTXO in the simple payment channel.
 3. Bob signs and broadcasts the unrevocable CTx and has instant access to his funds.
 
-The message exchange diagram below shows Alice and Bb acting co-operatively to close the channel. Note that Alice and Bob both have access to the funds from the CTx immediately.
+The message exchange diagram below shows Alice and Bob acting co-operatively to close the channel. Note that Alice and Bob both have access to the funds from the CTx immediately.
 
 ![Two-way Channel - Co-operative closing](./Two_Way_Channel_Messages5.svg)
 
@@ -439,7 +439,9 @@ Payment channels have two branches. So far, the payment channels we've seen have
 
 If we contstruct the channel in such a way that instead of having a refund branch, Alice has her own spend branch, then the channel doesn't need an expiry time. Either party can unilaterally close the channel at any time, which means they both have an *escape* route. Alice's spend branch is an exact mirror of Bob's.
 
-These mirrored symmetric commitment transactions require the balance in one commitement transaction to go down when the balance in its mirror commitment transaction goes up. For that reason, we can't have symmetric commitment transactions for a simple channel - balances in simple channels can only go one way. However, using revocable transactions we *can* create symmetric commitment transactions where the balance in one commitment transaction decreases as the balance in the other commitment transaction increases.
+These mirrored symmetric commitment transactions require the balance in one commitement transaction to go down when the balance in its mirror commitment transaction goes up. For that reason, we can't have symmetric commitment transactions for a simple channel since balances in simple channels can only go one way. However, using revocable transactions we *can* create symmetric commitment transactions where the balance in one commitment transaction decreases as the balance in the other commitment transaction increases.
+
+Under this scheme Alice signs CTxA and sends it to Bob, and Bob signs CTxB and sends it to Alice.
 
 #### 6.2 Opening a non-expiring payment channel
 
