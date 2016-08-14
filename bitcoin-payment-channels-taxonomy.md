@@ -481,9 +481,6 @@ Commitment state 2 is as follows:
 
 If Bob wants to pay Alice in the channel, the protocol proceeds exactly as above, except that the roles are reversed (ie Bob starts by constructing a new CTxB and sending it to Alice).
 
-<<<<<<< 3699d051ad19fa04c497231769db72089a977053
-#### 6.4 Closing the channel unilaterally
-=======
 #### 6.4 Re-anchoring the channel
 
 Since there is no refund transaction in this type of channel, it's possible for the parties to co-operate to add fresh funds to the payment channel or withdraw funds from the payment channel without closing it.
@@ -524,29 +521,13 @@ Paying into the payment channel (from one side) and withdrawing from the payment
 
 ![Everlasting Channel - Re-anchoring the channel](./Everlasting_Channel3.svg)
 
-#### 6.5 Closing the channel co-operatively
-
-If both parties agree that they want to close the channel, they can close it immediately without having to wait for the revocation timeout delay. If Alice wants to close the channel co-operatively, she constructs a *closing transaction* as follows:
-
-1. the TXI is the TXO from the anchor transactions
-2. there are two TXOs:
-    - a P2PKH to Alice for her balance (from the current commitment state)
-    - a P2PKH to Bob for his balance (from the current commitment state)
-
-she signs the transaction and sends it to Bob, who also signs it and broadcasts it to the Bitcoin network:
-
-![Symmetric Channel - Closing the channel co-operatively](./Everlasting_Channel4.svg)
->>>>>>> add reanchoring
+#### 6.5 Closing the channel unilaterally
 
 In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx, and then claim their funds after waiting for the revocation timeout duration.
 
 This is exactly the same message exchange and protocol as closing a two-way channel unilaterally. The only difference is in a two-way channel only Bob could close the channel unilaterally, whereas in a symmetrical channel either party can close the channel unilaterally.
 
-<<<<<<< 3699d051ad19fa04c497231769db72089a977053
-#### 6.5 Closing the channel co-operatively
-=======
-#### 6.6 Closing the channel unilaterally
->>>>>>> add reanchoring
+#### 6.6 Closing the channel co-operatively
 
 If both parties agree that they want to close the channel, they can do so co-operatively and have access to their funds immediately without having to wait for the revocation timeout delay. The message exchange protocol for closing the channel co-operatively is exactly the same as in the earlier two-way channel case. Again, the only difference is that both Alice can propose to close the channel co-operatively since the channel is entirely symmetrical.
 
