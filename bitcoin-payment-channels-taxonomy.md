@@ -38,13 +38,13 @@
 
 ## 1. Introduction
 
-This document is an attempt to describe the various kinds of payment channels that are possible in Bitcoin with today's technology. It is a top-to-bottom description of the payment channel and covers:
+This document is an attempt to describe the various kinds of payment channels that are possible in Bitcoin with today's technology (ie from bitcoind V0.13.0 with OP_CHECKLOCKTIMEVERIFY, OP_CHECKSEQUENCEVERIFY and Segregated Witness). It is a top-to-bottom description of the payment channel and covers:
 
 - the operation of the channel including the opening (*anchor*) transaction, the commitment states and the channel closing conditions
 - the order and exchange of messages for commitment state changes
 - the full locking (*scriptPubKey*) and unlocking (*scriptSig*) scripts for all transactions
 
-The reader is assumed to have a knowledge of the format of bitcoin transactions and transaction outputs, the concept of pay-to-[witness-]script-hash and the workings of opcodes and the Script language. No prior knowledge of payment channels is assumed.
+The reader is assumed to have a knowledge of the format of bitcoin transactions and transaction outputs, the concept of pay-to-witness-script-hash and the workings of opcodes and the Script language. No prior knowledge of payment channels is assumed.
 
 A few things this article doesn't cover:
 
@@ -78,6 +78,14 @@ To update the balances in the channel, the channel goes through a *commitment st
 The *consistency* property guarantees that the channel remains synchronized between both parties and that the channel never enters a state where the parties' balances are inconsistent. The *escape* property guarantees that at all times during channel's existence, both parties have an escape route to claim their balance. The *safeguard* property guarantees that by entering into a payment channel, neither party can be denied their full balance (so long as they act correctly).
 
 Taken together, these properties ensure that payment channels do not require any trust between counterparies and mean that neither party takes on risk by entering into the channel.
+
+#### A note on segregated witness
+
+For more advanced types of payment channel, we need to avoid first or third party malleability. For this reason, all of the transactions described below are assumed to be segregated witness transactions (either P2WSH or P2WPK).
+
+The format for P2WSH TXOs are defined in [BIP 141](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki). For simplicity, we refer only to 'scripts' and 'signatures' in this article, and ignore the technical aspects of including those scripts and signatures in the spending transaction's witness program. Readers can just assume that the script locks the TXO and the signatures provide the requirements for unlocking the TXO.
+
+Simple one-way payment channels *can* be implemented using standard P2SH without worrying about malleability. Again, we refer only to 'scripts' and 'signatures' for the locking and unlocking conditions.
 
 ## 3. Diagram style
 
@@ -178,7 +186,7 @@ Alice needs a refund branch to protect her funds from being stranded in the chan
 
 Without an escape route Alice's funds could become stranded or held to ransom inside the channel. If Bob stops responding to Alice's messages (either inadvertently or maliciously), Alice would have no way to get her funds back. A malicious Bob might hold Alice's funds to ransom and only agree to unlock the multisig TXO in return for a ransom fee.
 
-The locking script is as follows:
+The script is as follows:
 
 ```
 OP_IF
@@ -255,7 +263,7 @@ In this example:
 2. Alice then constructs and signs a sequence of four CTxs, which she sends to Bob
 3. Bob closes the channel by signing and broadcasting the most recent transaction CTx4
 
-Bob broadcasts CTx4 transaction, which has the following unlocking script:
+Bob broadcasts CTx4 transaction, which has the following signature:
 
 ```
 <Alice's sig> <Bob's sig> 1
@@ -271,7 +279,7 @@ Here's a diagram of Bob disappearing after 2 CTxs, and Alice reclaiming the fund
 
 ![Simple Channel - ladder diagram 2](./Simple_Channel6.svg)
 
-The refund transaction takes the anchor transaction TXO as its TXI and has the following unlocking script:
+The refund transaction takes the anchor transaction TXO as its TXI and has the following signature stack:
 
 ```
 <Alice's sig> 0
@@ -279,7 +287,7 @@ The refund transaction takes the anchor transaction TXO as its TXI and has the f
 
 #### 4.4 Advantages of simple payment channels
 
-An advantage of this style of payment channel is that it is extremely simple. The anchor TXO locking script is essentially either a 2-of-2 multisig in the spend branch, or a P2PKH with relative timelock in the refund branch. Commitment transitions are achieved simply by Alice constructing and signing new CTXs and sending them to Bob.
+An advantage of this style of payment channel is that it is extremely simple. The anchor TXO script is essentially either a 2-of-2 multisig in the spend branch, or a P2PKH with relative timelock in the refund branch. Commitment transitions are achieved simply by Alice constructing and signing new CTXs and sending them to Bob.
 
 The channel is also almost entirely passive from Bob's point of view. He simply needs to keep hold of the most recent CTx, and then sign and broadcast it when he's ready to close the channel. Simple channels should be very straightforward for wallets and applications to implement.
 
@@ -316,7 +324,7 @@ We're going to use rTXOs *a lot* for more advanced channels, so it makes sense t
 
 Conceptually, the combined up/down facing chevron indicates that the rTXO can be revoked.
 
-The locking script for a revocable transaction is:
+The script for a revocable transaction is:
 
 ```
 OP_IF # Bob's spend branch - after the revocation timeout duration, Bob can spend with just his signature
@@ -329,13 +337,13 @@ OP_ENDIF
 OP_CHECKSIG
 ```
 
-For Bob to spend the TXO, he needs to wait for the revocation timeout duration and then provide the following unlocking script:
+For Bob to spend the TXO, he needs to wait for the revocation timeout duration and then provide the following signature:
 
 ```
 <Bob's sig> 1
 ```
 
-If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by providing the following unlocking script:
+If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by providing the following signature:
 
 ```
 <Alice's sig> <rev> 0
@@ -441,7 +449,7 @@ Next we'll look at how to construct a payment channel that can stay open indefin
 
 Payment channels have two branches. So far, the payment channels we've seen have a *spend* branch for Bob and a *refund* branch for Alice. The refund branch is required to prevent Alice's funds from being stranded (Alice's *escape* clause), and needs to have a relative timelock to prevent Alice from prematurely claiming (ie stealing) all the funds in the channel (Bob's *safeguard* clause).
 
-If we contstruct the channel in such a way that instead of having a refund branch, Alice has her own spend branch, then the channel doesn't need an expiry time. Either party can unilaterally close the channel at any time, which means they both have an *escape* route. Alice's spend branch is an exact mirror of Bob's.
+If we construct the channel in such a way that instead of having a refund branch, Alice has her own spend branch, then the channel doesn't need an expiry time. Either party can unilaterally close the channel at any time, which means they both have an *escape* route. Alice's spend branch is an exact mirror of Bob's.
 
 These mirrored symmetric commitment transactions require the balance in one commitement transaction to go down when the balance in its mirror commitment transaction goes up. For that reason, we can't have symmetric commitment transactions for a simple channel since balances in simple channels can only go one way. However, using revocable transactions we *can* create symmetric commitment transactions where the balance in one commitment transaction decreases as the balance in the other commitment transaction increases.
 
@@ -497,7 +505,7 @@ As in the two-way channel, if one of the parties constructs and sends an unrevoc
 
 ## 8. Routable payment channels
 
-Payment channels exist between two parties. With the payment channels we've looked at so far, if Alice wants to pay or be paid by a new counterparty, she would need to open a new payment channel with that party. That limits the scalability of payment channels since for every new channel we need to broadcast two transactions to the blockchain. In the worst case (where the parties only want to execute a single payment) this is actually *worse* than simply broadcasting a single transaction to the blockchain.
+Payment channels exist between two parties. With the payment channels we've looked at so far, if Alice wants to pay or be paid by a new counterparty, she would need to open a new payment channel with that party. Every new channel requires at the two transactions on the blockchain, so requiring a new channel for every pair of counterparties would severely limit the scalability of payment channels. In the worst case (where the parties only want to execute a single payment) this is actually *worse* than simply broadcasting a single transaction to the blockchain.
 
 However, if we could somehow link payment channels together and route payments through them, we wouldn't need to open a new channel for each new recipient. For example, imagine:
 
@@ -535,20 +543,20 @@ There's no reason that this method can't be extended further. Say Alice wants to
 
 ![Hash Contracts - 4 hops](./hash-contract2.svg)
 
-The locking script for Alice's hashed contract to Bob is:
+The script for Alice's hashed contract to Bob is:
 
 ```
 OP_HASH160 <h(con)> OP_EQUALVERIFY OP_DROP #Check that Bob has the contract hash pre-image
 <Bob's public key> OP_CHECKSIG #Check Bob's signature
 ```
 
-Bob's unlocking script is simply:
+Bob's signature is simply:
 
 ```
 <Bob's sig> <con>
 ```
 
-Bob can issue exactly the same contract to Carol, just swapping his public key in the locking script for Carol's.
+Bob can issue exactly the same contract to Carol, just swapping his public key in the script for Carol's.
 
 #### 8.2 Hashed Time-locked contracts
 
@@ -565,7 +573,7 @@ The chain of HTLCs now looks like this:
 
 ![HTLCs - 4 hops](./htlc1.svg)
 
-The locking script for Alice's HTLC to Bob is:
+The script for Alice's HTLC to Bob is:
 
 ```
 OP_IF # Spend branch - Bob can spend the HTLC if he has the contract pre-image
@@ -578,13 +586,13 @@ OP_ENDIF
 OP_CHECKSIG
 ```
 
-Bob's spend unlocking script is:
+Bob's spend signature is:
 
 ```
 <Bob's sig> <con> 1
 ```
 
-Alice's refund unlocking script is:
+Alice's refund signature is:
 
 ```
 <Alice's sig> 0
@@ -604,7 +612,7 @@ The HTLC is redeemable in three ways:
 - by the sender if the HTLC timelock has expired
 - (if one of the parties in the channel tried to cheat and redeem an old commitment state) by the cheated party by using the revocation pre-image
 
-The locking script for the HTLC is slightly different in the two branches. If Alice is adding an HTLC to Bob, the locking script in her branch is:
+The script for the HTLC is slightly different in the two branches. If Alice is adding an HTLC to Bob, the script in her branch is:
 
 ```
 OP_HASH160 OP_DUP
@@ -620,7 +628,7 @@ OP_ELSE
 OP_CHECKSIG
 ```
 
-The unlocking scripts are:
+The signatures are:
 
 1. Bob spends by using the contract pre-image:
 
@@ -640,7 +648,7 @@ The unlocking scripts are:
 <Bob's sig> <rev>
 ```
 
-The locking script in Bob's branch is:
+The script in Bob's branch is:
 
 ```
 OP_HASH160 OP_DUP
@@ -659,7 +667,7 @@ OP_ENDIF
 OP_CHECKSIG
 ```
 
-The unlocking scripts are:
+The signatures are:
 
 1. Bob spends by using the contract pre-image after the revocation timelock
 
