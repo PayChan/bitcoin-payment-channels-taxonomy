@@ -75,6 +75,14 @@ The *consistency* property guarantees that the channel remains synchronized betw
 
 Taken together, these properties ensure that payment channels do not require any trust between counterparies and mean that neither party takes on risk by entering into the channel.
 
+#### A note on segregated witness
+
+For more advanced types of payment channel, we need to avoid first or third party malleability. For this reason, all of the transactions described below are assumed to be segregated witness transactions (either P2WSH or P2WPK).
+
+The format for P2WSH TXOs are defined in [BIP 141](https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki). For simplicity, we refer only to 'scripts' and 'signatures' in this article, and ignore the technical aspects of including those scripts and signatures in the spending transaction's witness program. Readers can just assume that the script locks the TXO and the signatures provide the requirements for unlocking the TXO.
+
+Simple one-way payment channels *can* be implemented using standard P2SH without worrying about malleability. Again, we refer only to 'scripts' and 'signatures' for the locking and unlocking conditions.
+
 ## 3. Diagram style
 
 #### 3.1 Transaction graphs
@@ -174,7 +182,7 @@ Alice needs a refund branch to protect her funds from being stranded in the chan
 
 Without an escape route Alice's funds could become stranded or held to ransom inside the channel. If Bob stops responding to Alice's messages (either inadvertently or maliciously), Alice would have no way to get her funds back. A malicious Bob might hold Alice's funds to ransom and only agree to unlock the multisig TXO in return for a ransom fee.
 
-The locking script is as follows:
+The script is as follows:
 
 ```
 OP_IF
@@ -251,7 +259,7 @@ In this example:
 2. Alice then constructs and signs a sequence of four CTxs, which she sends to Bob
 3. Bob closes the channel by signing and broadcasting the most recent transaction CTx4
 
-Bob broadcasts CTx4 transaction, which has the following unlocking script:
+Bob broadcasts CTx4 transaction, which has the following signature:
 
 ```
 <Alice's sig> <Bob's sig> 1
@@ -267,7 +275,7 @@ Here's a diagram of Bob disappearing after 2 CTxs, and Alice reclaiming the fund
 
 ![Simple Channel - ladder diagram 2](./Simple_Channel6.svg)
 
-The refund transaction takes the anchor transaction TXO as its TXI and has the following unlocking script:
+The refund transaction takes the anchor transaction TXO as its TXI and has the following signature:
 
 ```
 <Alice's sig> 0
@@ -275,7 +283,7 @@ The refund transaction takes the anchor transaction TXO as its TXI and has the f
 
 #### 4.4 Advantages of simple payment channels
 
-An advantage of this style of payment channel is that it is extremely simple. The anchor TXO locking script is essentially either a 2-of-2 multisig in the spend branch, or a P2PKH with relative timelock in the refund branch. Commitment transitions are achieved simply by Alice constructing and signing new CTXs and sending them to Bob.
+An advantage of this style of payment channel is that it is extremely simple. The anchor TXO script is essentially either a 2-of-2 multisig in the spend branch, or a P2PKH with relative timelock in the refund branch. Commitment transitions are achieved simply by Alice constructing and signing new CTXs and sending them to Bob.
 
 The channel is also almost entirely passive from Bob's point of view. He simply needs to keep hold of the most recent CTx, and then sign and broadcast it when he's ready to close the channel. Simple channels should be very straightforward for wallets and applications to implement.
 
@@ -312,7 +320,7 @@ We're going to use rTXOs *a lot* for more advanced channels, so it makes sense t
 
 Conceptually, the combined up/down facing chevron indicates that the rTXO can be revoked.
 
-The locking script for a revocable transaction is:
+The script for a revocable transaction is:
 
 ```
 OP_IF # Bob's spend branch - after the revocation timeout duration, Bob can spend with just his signature
@@ -325,13 +333,13 @@ OP_ENDIF
 OP_CHECKSIG
 ```
 
-For Bob to spend the TXO, he needs to wait for the revocation timeout duration and then provide the following unlocking script:
+For Bob to spend the TXO, he needs to wait for the revocation timeout duration and then provide the following signature:
 
 ```
 <Bob's sig> 1
 ```
 
-If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by providing the following unlocking script:
+If Bob broadcasts a revoked transaction, Alice can claim the revocation TXO by providing the following signature:
 
 ```
 <Alice's sig> <rev> 0
