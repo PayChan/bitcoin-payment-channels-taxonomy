@@ -50,8 +50,8 @@
 <li>6.2 Opening the channel</li>
 <li>6.3 Updating the balance</li>
 <li>6.4 Re-anchoring the channel</li>
-<li>6.5 Closing the channel co-operatively</li>
-<li>6.6 Closing the channel unilaterally</li>
+<li>6.5 Closing the channel unilaterally</li>
+<li>6.6 Closing the channel co-operatively</li>
 </ul>
 </li>
 <li>7 Dual-funded payment channels</li>
@@ -292,7 +292,7 @@ OP_CHECKSIG
 <p>Two-way payment channel can be closed either unilaterally by Bob or co-operatively. As with a simple payment channel, Alice also has the option to close the channel using the refund branch if Bob disappears.</p>
 <h6><a id="541_Closing_the_channel_unilaterally_405"></a>5.4.1 Closing the channel unilaterally</h6>
 <p>Bob can close the channel at any point by signing and broadcasting the most recent CTx. Once the CTx is broadcast, he must then wait for the rTXO timeout duration before he’s able to spend his output from the CTx.</p>
-<p>The message exchange diagram below shows the channel being opened, one payment being made in each direction, and then Bob unilaterally closing the channel. Note that Alice has access to her funds as soon as Bob broadcasts the CTx, but Bob must wait for the revocation timeout delay.</p>
+<p>The message exchange diagram below shows Bob unilaterally closing the channel after commitment state 3. Note that Alice has access to her funds as soon as Bob broadcasts the CTx, but Bob must wait for the revocation timeout delay.</p>
 <p><img src="./Two_Way_Channel_Messages4.svg" alt="Two-way Channel - Bob closes unilaterally"></p>
 <h6><a id="542_Closing_the_channel_cooperatively_413"></a>5.4.2 Closing the channel co-operatively</h6>
 <p>Bob may not want to wait for an rTXO timeout duration before spending his funds. If Alice is acting co-operatively, they can work together so he can get his funds as soon as the channel closes. The protocol for doing that is as follows:</p>
@@ -380,10 +380,10 @@ OP_CHECKSIG
 </ol>
 <p>Paying into the payment channel (from one side) and withdrawing from the payment channel (to the other side) is a quick way to rebalance a payment channel that has become unbalanced.</p>
 <p><img src="./Everlasting_Channel3.svg" alt="Everlasting Channel - Re-anchoring the channel"></p>
-<h4><a id="66_Closing_the_channel_unilaterally_523"></a>6.6 Closing the channel unilaterally</h4>
+<h4><a id="65_Closing_the_channel_unilaterally_523"></a>6.5 Closing the channel unilaterally</h4>
 <p>In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx, and then claim their funds after waiting for the revocation timeout duration.</p>
 <p>This is exactly the same message exchange and protocol as closing a two-way channel unilaterally. The only difference is in a two-way channel only Bob could close the channel unilaterally, whereas in a symmetrical channel either party can close the channel unilaterally.</p>
-<h4><a id="65_Closing_the_channel_cooperatively_529"></a>6.5 Closing the channel co-operatively</h4>
+<h4><a id="66_Closing_the_channel_cooperatively_529"></a>6.6 Closing the channel co-operatively</h4>
 <p>If both parties agree that they want to close the channel, they can do so co-operatively and have access to their funds immediately without having to wait for the revocation timeout delay. The message exchange protocol for closing the channel co-operatively is exactly the same as in the earlier two-way channel case. Again, the only difference is that both Alice can propose to close the channel co-operatively since the channel is entirely symmetrical.</p>
 <p>As in the two-way channel, if one of the parties constructs and sends an unrevocable closing transaction but the other doesn’t broadcast it to the network, the party that has constructed the closing transaction <strong>must</strong> close the channel unilaterally and should not sign any more commitment transactions.</p>
 <h2><a id="7_Dualfunded_payment_channels_535"></a>7. Dual-funded payment channels</h2>

@@ -521,13 +521,21 @@ Paying into the payment channel (from one side) and withdrawing from the payment
 
 ![Everlasting Channel - Re-anchoring the channel](./Everlasting_Channel3.svg)
 
+<<<<<<< HEAD
 #### 6.5 Closing the channel co-operatively
+=======
+#### 6.5 Closing the channel unilaterally
+>>>>>>> 0b95cbbdc712c955b1be08f9565be20f9e2c69d1
 
 In any commitment state, both parties hold a valid CTx. Either party can close out the channel by broadcasting the CTx, and then claim their funds after waiting for the revocation timeout duration.
 
 This is exactly the same message exchange and protocol as closing a two-way channel unilaterally. The only difference is in a two-way channel only Bob could close the channel unilaterally, whereas in a symmetrical channel either party can close the channel unilaterally.
 
+<<<<<<< HEAD
 #### 6.6 Closing the channel unilaterally
+=======
+#### 6.6 Closing the channel co-operatively
+>>>>>>> 0b95cbbdc712c955b1be08f9565be20f9e2c69d1
 
 If both parties agree that they want to close the channel, they can do so co-operatively and have access to their funds immediately without having to wait for the revocation timeout delay. The message exchange protocol for closing the channel co-operatively is exactly the same as in the earlier two-way channel case. Again, the only difference is that both Alice can propose to close the channel co-operatively since the channel is entirely symmetrical.
 
